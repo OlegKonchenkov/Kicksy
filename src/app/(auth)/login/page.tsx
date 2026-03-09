@@ -1,10 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageSkeleton />}>
+      <LoginPageContent />
+    </Suspense>
+  )
+}
+
+function LoginPageContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
@@ -211,6 +219,14 @@ export default function LoginPage() {
           Il campo ti aspetta ⚡
         </p>
       </div>
+    </div>
+  )
+}
+
+function LoginPageSkeleton() {
+  return (
+    <div className="min-h-dvh flex items-center justify-center px-5 py-12 grain">
+      <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem' }}>Caricamento...</p>
     </div>
   )
 }
