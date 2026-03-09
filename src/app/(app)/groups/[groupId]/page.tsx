@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui'
 import { MatchCard } from '@/components/ui'
-import { CalendarDays, Trophy, Star, Users } from 'lucide-react'
+import { CalendarDays, Trophy, Star, Users, BarChart2 } from 'lucide-react'
 
 interface PageProps {
   params: Promise<{ groupId: string }>
@@ -201,7 +201,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
         <Link
           href={`/groups/${groupId}/matches`}
           style={{
@@ -260,6 +260,36 @@ export default async function GroupDetailPage({ params }: PageProps) {
             }}
           >
             Classifica
+          </span>
+        </Link>
+        <Link
+          href={`/groups/${groupId}/stats`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.375rem',
+            padding: '1rem',
+            background: 'var(--color-surface)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--color-border)',
+            textDecoration: 'none',
+            minHeight: 80,
+          }}
+        >
+          <BarChart2 size={22} color="var(--color-text-2)" />
+          <span
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              color: 'var(--color-text-1)',
+            }}
+          >
+            Statistiche
           </span>
         </Link>
         <Link
