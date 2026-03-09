@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
 
 type Step = 'profile' | 'group'
 type PlayerRole = 'D' | 'C' | 'E' | 'W' | 'A'
@@ -26,6 +28,8 @@ export default function OnboardingPage() {
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<PlayerRole | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
 
   // Group step state
@@ -33,6 +37,28 @@ export default function OnboardingPage() {
   const [groupName, setGroupName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [groupError, setGroupError] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+    }
+  }, [avatarPreview])
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const validation = validateAvatarFile(file)
+    if (validation) {
+      setProfileError(validation)
+      return
+    }
+
+    if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+    setProfileError(null)
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -48,13 +74,31 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
+      let avatarUrl: string | null = null
+      if (avatarFile) {
+        const { url, error: avatarErr } = await uploadAvatarImage(supabase, user.id, avatarFile)
+        if (avatarErr || !url) {
+          setProfileError(avatarErr ?? 'Upload immagine fallito')
+          return
+        }
+        avatarUrl = url
+      }
+
+      const updates: {
+        username: string
+        full_name: string | null
+        preferred_role: PlayerRole | null
+        avatar_url?: string | null
+      } = {
+        username: username.trim().toLowerCase(),
+        full_name: fullName.trim() || null,
+        preferred_role: role,
+      }
+      if (avatarUrl) updates.avatar_url = avatarUrl
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          username: username.trim().toLowerCase(),
-          full_name: fullName.trim() || null,
-          preferred_role: role,
-        })
+        .update(updates)
         .eq('id', user.id)
 
       if (error) {
@@ -219,6 +263,65 @@ export default function OnboardingPage() {
               maxLength={24}
               required
             />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-text-2)',
+                  fontFamily: 'var(--font-display)',
+                }}
+              >
+                Foto profilo (opzionale)
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Avatar src={avatarPreview} name={fullName || username || 'Player'} size="lg" />
+                <label
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-elevated)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    color: 'var(--color-text-2)',
+                  }}
+                >
+                  Carica
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/avif"
+                    onChange={handleAvatarChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {avatarFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+                      setAvatarFile(null)
+                      setAvatarPreview(null)
+                    }}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      color: 'var(--color-text-3)',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Rimuovi
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: '0.7rem', color: 'var(--color-text-3)' }}>
+                JPG, PNG, WEBP o AVIF, massimo 5MB.
+              </p>
+            </div>
 
             <Input
               label="Nome completo (opzionale)"

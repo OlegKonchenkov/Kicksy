@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Avatar } from '@/components/ui/Avatar'
+import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
 
 const ROLE_OPTIONS = [
   { value: 'D', label: 'Difensore', emoji: '🛡️' },
@@ -25,6 +27,9 @@ export default function ProfileEditPage() {
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [preferredRole, setPreferredRole] = useState<RoleValue | ''>('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -32,7 +37,7 @@ export default function ProfileEditPage() {
       if (!user) { router.push('/login'); return }
       supabase
         .from('profiles')
-        .select('username, full_name, preferred_role')
+        .select('username, full_name, preferred_role, avatar_url')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
@@ -40,11 +45,18 @@ export default function ProfileEditPage() {
             setUsername(data.username ?? '')
             setFullName(data.full_name ?? '')
             setPreferredRole((data.preferred_role as RoleValue) ?? '')
+            setAvatarUrl(data.avatar_url ?? null)
           }
           setLoading(false)
         })
     })
   }, [router])
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+    }
+  }, [avatarPreview])
 
   const handleSave = () => {
     setError(null)
@@ -56,12 +68,23 @@ export default function ProfileEditPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      let nextAvatarUrl = avatarUrl
+      if (avatarFile) {
+        const { url, error: avatarErr } = await uploadAvatarImage(supabase, user.id, avatarFile)
+        if (avatarErr || !url) {
+          setError(avatarErr ?? 'Upload immagine fallito')
+          return
+        }
+        nextAvatarUrl = url
+      }
+
       const { error: err } = await supabase
         .from('profiles')
         .update({
           username: username.trim().toLowerCase(),
           full_name: fullName.trim() || null,
           preferred_role: preferredRole || null,
+          avatar_url: nextAvatarUrl,
         })
         .eq('id', user.id)
 
@@ -123,6 +146,67 @@ export default function ProfileEditPage() {
 
       {/* Form */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+        <div>
+          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.625rem' }}>
+            Foto Profilo
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Avatar src={avatarPreview ?? avatarUrl} name={fullName || username || 'Player'} size="lg" />
+            <label
+              style={{
+                padding: '0.5rem 0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-elevated)',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                color: 'var(--color-text-2)',
+              }}
+            >
+              Cambia
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/avif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const validation = validateAvatarFile(file)
+                  if (validation) {
+                    setError(validation)
+                    return
+                  }
+                  if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview)
+                  setError(null)
+                  setAvatarFile(file)
+                  setAvatarPreview(URL.createObjectURL(file))
+                }}
+                style={{ display: 'none' }}
+              />
+            </label>
+            {(avatarPreview || avatarUrl) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAvatarFile(null)
+                  setAvatarPreview(null)
+                  setAvatarUrl(null)
+                }}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  color: 'var(--color-text-3)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Rimuovi
+              </button>
+            )}
+          </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--color-text-3)', marginTop: '0.375rem' }}>
+            JPG, PNG, WEBP o AVIF, massimo 5MB.
+          </p>
+        </div>
 
         {/* Username */}
         <div>
