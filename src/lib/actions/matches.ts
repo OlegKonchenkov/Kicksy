@@ -322,10 +322,21 @@ async function ensureTemplatePollsForMatch(
   }>
 
   if (!templates || templates.length === 0) return
+
+  const { data: settingsRows } = await supabase
+    .from('group_poll_template_settings')
+    .select('template_id, is_enabled')
+    .eq('group_id', groupId)
+
+  const settingsMap = new Map<string, boolean>()
+  for (const s of settingsRows ?? []) settingsMap.set(s.template_id, s.is_enabled)
+
+  const enabledTemplates = templates.filter((t) => settingsMap.get(t.id) !== false)
+  if (enabledTemplates.length === 0) return
   const participantOptions = Array.from(new Set(participantIds))
   if (participantOptions.length === 0) return
 
-  const payload = templates.map((t) => {
+  const payload = enabledTemplates.map((t) => {
     const rawOptions = t.options_it ?? []
     const isPlayerChoice =
       rawOptions.length <= 1 &&
@@ -342,6 +353,33 @@ async function ensureTemplatePollsForMatch(
   })
 
   await supabase.from('polls').insert(payload)
+}
+
+async function createXpNotification(userId: string, xpGain: number) {
+  if (xpGain <= 0) return
+
+  const payload = {
+    user_id: userId,
+    type: 'xp_gain' as const,
+    title: `+${xpGain} XP`,
+    body: 'Hai guadagnato esperienza. Continua cosi!',
+    data: { xp_gain: xpGain },
+  }
+
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('notifications').insert(payload)
+    if (!error) return
+  } catch {
+    // ignore and retry with admin client
+  }
+
+  try {
+    const admin = await createAdminClient()
+    await admin.from('notifications').insert(payload)
+  } catch {
+    // no-op if admin env is not configured
+  }
 }
 
 async function generateRecapText(input: {
@@ -1074,23 +1112,29 @@ const XP_PER_PEER_RATING = 12
 async function awardProfileXP(userId: string, xpGain: number) {
   if (xpGain <= 0) return
   const supabase = await createClient()
+  let updated = false
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rpcRes = await (supabase as any).rpc('increment_profile_xp', { p_user_id: userId, p_xp: xpGain })
-  if (!rpcRes.error) return
+  if (!rpcRes.error) {
+    updated = true
+  } else {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('xp')
+      .eq('id', userId)
+      .single()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('xp')
-    .eq('id', userId)
-    .single()
+    const newXP = (profile?.xp ?? 0) + xpGain
+    const newLevel = getLevelNumber(newXP)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ xp: newXP, level: newLevel })
+      .eq('id', userId)
+    if (!error) updated = true
+  }
 
-  const newXP = (profile?.xp ?? 0) + xpGain
-  const newLevel = getLevelNumber(newXP)
-  await supabase
-    .from('profiles')
-    .update({ xp: newXP, level: newLevel })
-    .eq('id', userId)
+  if (updated) await createXpNotification(userId, xpGain)
 }
 
 export async function submitRatings(

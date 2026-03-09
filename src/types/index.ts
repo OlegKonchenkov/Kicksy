@@ -14,6 +14,7 @@ export type {
   PlayerRating,
   MatchComment,
   MatchRecap,
+  GroupPollTemplateSetting,
   Badge,
   PlayerBadge,
   PlayerTitle,

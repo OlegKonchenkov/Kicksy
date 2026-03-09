@@ -208,3 +208,67 @@ export async function leaveGroup(groupId: string): Promise<AsyncResult<true>> {
   revalidatePath('/groups')
   return { data: true, error: null }
 }
+
+export async function getGroupPollTemplateSettings(groupId: string): Promise<AsyncResult<Array<{
+  template_id: string
+  question_it: string
+  is_enabled: boolean
+  is_global: boolean
+}>>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const [templatesRes, settingsRes] = await Promise.all([
+    supabase
+      .from('poll_templates')
+      .select('id, question_it, is_global, group_id')
+      .or(`is_global.eq.true,group_id.eq.${groupId}`),
+    supabase
+      .from('group_poll_template_settings')
+      .select('template_id, is_enabled')
+      .eq('group_id', groupId),
+  ])
+
+  if (templatesRes.error) return { data: null, error: templatesRes.error.message }
+
+  const templates = (templatesRes.data ?? []) as Array<{
+    id: string
+    question_it: string
+    is_global: boolean
+  }>
+
+  const settingsMap = new Map<string, boolean>()
+  for (const s of settingsRes.data ?? []) settingsMap.set(s.template_id, s.is_enabled)
+
+  const data = templates.map((t) => ({
+    template_id: t.id,
+    question_it: t.question_it,
+    is_global: t.is_global,
+    is_enabled: settingsMap.get(t.id) !== false,
+  }))
+
+  return { data, error: null }
+}
+
+export async function setGroupPollTemplateEnabled(
+  groupId: string,
+  templateId: string,
+  isEnabled: boolean,
+): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('group_poll_template_settings')
+    .upsert(
+      {
+        group_id: groupId,
+        template_id: templateId,
+        is_enabled: isEnabled,
+      },
+      { onConflict: 'group_id,template_id', ignoreDuplicates: false },
+    )
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/groups/${groupId}/settings`)
+  return { data: true, error: null }
+}

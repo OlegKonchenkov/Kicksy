@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BottomNav } from '@/components/layout/BottomNav'
+import { NotificationInbox } from '@/components/layout/NotificationInbox'
 import { InstallAppButton } from '@/components/pwa/InstallAppButton'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main
         style={{
           flex: 1,
+          paddingTop: 'calc(40px + env(safe-area-inset-top) + 0.5rem)',
           paddingBottom: 'calc(58px + env(safe-area-inset-bottom))',
           overflowY: 'auto',
         }}
@@ -33,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
+      <NotificationInbox />
       <InstallAppButton />
       <BottomNav />
     </div>

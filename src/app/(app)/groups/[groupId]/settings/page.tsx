@@ -6,11 +6,13 @@ import Link from 'next/link'
 import { Avatar } from '@/components/ui'
 import {
   getGroupDetails,
+  getGroupPollTemplateSettings,
   updateGroupSettings,
   regenerateInviteCode,
   removeMember,
   promoteMember,
   leaveGroup,
+  setGroupPollTemplateEnabled,
 } from '@/lib/actions/groups'
 
 interface Member {
@@ -55,9 +57,16 @@ export default function GroupSettingsPage() {
   const [inviteCode, setInviteCode] = useState('')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pollTemplates, setPollTemplates] = useState<Array<{
+    template_id: string
+    question_it: string
+    is_enabled: boolean
+    is_global: boolean
+  }>>([])
 
   useEffect(() => {
-    getGroupDetails(groupId).then(res => {
+    ;(async () => {
+      const res = await getGroupDetails(groupId)
       if (res.error || !res.data) {
         setPageError(res.error ?? 'Gruppo non trovato')
         setLoading(false)
@@ -73,8 +82,11 @@ export default function GroupSettingsPage() {
       setDescription(g.description ?? '')
       setInviteEnabled(g.invite_link_enabled)
       setInviteCode(g.invite_code)
+
+      const pollsRes = await getGroupPollTemplateSettings(groupId)
+      if (pollsRes.data) setPollTemplates(pollsRes.data)
       setLoading(false)
-    })
+    })()
   }, [groupId, router])
 
   const showSuccess = (msg: string) => {
@@ -150,6 +162,19 @@ export default function GroupSettingsPage() {
       const res = await leaveGroup(groupId)
       if (res.error) setActionError(res.error)
       else router.push('/groups')
+    })
+  }
+
+  const handleTogglePollTemplate = (templateId: string, enabled: boolean) => {
+    setPollTemplates((prev) => prev.map((p) => p.template_id === templateId ? { ...p, is_enabled: enabled } : p))
+    startTransition(async () => {
+      const res = await setGroupPollTemplateEnabled(groupId, templateId, enabled)
+      if (res.error) {
+        setActionError(res.error)
+        setPollTemplates((prev) => prev.map((p) => p.template_id === templateId ? { ...p, is_enabled: !enabled } : p))
+      } else {
+        showSuccess('Template votazioni aggiornati')
+      }
     })
   }
 
@@ -291,6 +316,78 @@ export default function GroupSettingsPage() {
           >
             🔄 Rigenera codice
           </button>
+        </div>
+      </section>
+
+      {/* Poll templates */}
+      <section>
+        <p style={sectionTitle}>Votazioni Post-Partita</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+          <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-3)', lineHeight: 1.45 }}>
+            Attiva/disattiva i sondaggi automatici che si aprono a fine partita (oltre al voto MVP).
+          </p>
+
+          {pollTemplates.length === 0 ? (
+            <div style={{ padding: '0.75rem 0', fontSize: '0.875rem', color: 'var(--color-text-3)' }}>
+              Nessun template disponibile.
+            </div>
+          ) : (
+            pollTemplates.map((tpl) => (
+              <div
+                key={tpl.template_id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  padding: '0.75rem 0.875rem',
+                  background: 'var(--color-elevated)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-1)', fontWeight: 600, lineHeight: 1.35 }}>
+                    {tpl.question_it}
+                  </div>
+                  <div style={{ marginTop: '0.25rem', fontSize: '0.7rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {tpl.is_global ? 'Globale' : 'Gruppo'}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleTogglePollTemplate(tpl.template_id, !tpl.is_enabled)}
+                  disabled={isPending}
+                  aria-label={`Toggle template ${tpl.question_it}`}
+                  style={{
+                    width: 48,
+                    height: 26,
+                    borderRadius: 999,
+                    border: 'none',
+                    background: tpl.is_enabled ? 'var(--color-primary)' : 'var(--color-border)',
+                    cursor: isPending ? 'default' : 'pointer',
+                    position: 'relative',
+                    transition: 'background 0.2s',
+                    flexShrink: 0,
+                    opacity: isPending ? 0.7 : 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 3,
+                      left: tpl.is_enabled ? 25 : 3,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      background: tpl.is_enabled ? 'var(--color-bg)' : 'var(--color-text-3)',
+                      transition: 'left 0.2s',
+                    }}
+                  />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </section>
 

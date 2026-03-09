@@ -17,7 +17,7 @@ export type RegistrationStatus = 'confirmed' | 'waitlist' | 'declined'
 export type BadgeTier = 'bronze' | 'silver' | 'gold'
 export type NotificationType =
   | 'match_invite' | 'match_reminder' | 'match_result' | 'team_generated'
-  | 'rating_request' | 'badge_earned' | 'level_up' | 'poll_open'
+  | 'rating_request' | 'badge_earned' | 'level_up' | 'poll_open' | 'xp_gain'
 
 /* ---- Row types (must be `type`, not `interface`) ---- */
 
@@ -236,6 +236,13 @@ export type MatchRecap = {
   model: string | null
   generated_at: string
   created_by: string | null
+}
+
+export type GroupPollTemplateSetting = {
+  group_id: string
+  template_id: string
+  is_enabled: boolean
+  updated_at: string
 }
 
 export type Notification = {
@@ -511,6 +518,19 @@ export type Database = {
           model?: string | null
           generated_at?: string
           created_by?: string | null
+        }
+        Relationships: []
+      }
+      group_poll_template_settings: {
+        Row: GroupPollTemplateSetting
+        Insert: {
+          group_id: string
+          template_id: string
+          is_enabled?: boolean
+        }
+        Update: {
+          is_enabled?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
