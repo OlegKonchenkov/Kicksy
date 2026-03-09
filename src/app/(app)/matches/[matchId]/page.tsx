@@ -14,7 +14,7 @@ import {
   submitMvpVote,
   unregisterFromMatch,
 } from '@/lib/actions/matches'
-import { Avatar, Button, MatchCard } from '@/components/ui'
+import { Avatar, Button, MatchCard, useToast } from '@/components/ui'
 import type { Match, MatchRegistration, MatchResult, RegistrationStatus } from '@/types'
 
 interface RegistrationWithProfile extends MatchRegistration {
@@ -56,12 +56,12 @@ type MatchCommentRow = {
 export default function MatchDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { showToast } = useToast()
   const matchId = params.matchId as string
   const [isPending, startTransition] = useTransition()
   const [data, setData] = useState<MatchData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const [mvpPoll, setMvpPoll] = useState<MvpPollData | null>(null)
   const [mvpVotes, setMvpVotes] = useState<Record<string, number>>({})
@@ -229,50 +229,50 @@ export default function MatchDetailPage() {
   }, [matchId, router])
 
   async function handleRegister() {
-    setActionError(null)
     startTransition(async () => {
       const result = await registerForMatch(matchId)
-      if (result.error) { setActionError(result.error); return }
-      window.location.reload()
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast('Iscrizione confermata! ⚽', 'success')
     })
   }
 
   async function handleUnregister() {
-    setActionError(null)
     startTransition(async () => {
       const result = await unregisterFromMatch(matchId)
-      if (result.error) { setActionError(result.error); return }
-      window.location.reload()
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast('Iscrizione annullata', 'info')
     })
   }
 
   async function handleVoteMvp() {
     if (!selectedMvpUserId) return
-    setActionError(null)
     startTransition(async () => {
       const result = await submitMvpVote(matchId, selectedMvpUserId)
-      if (result.error) { setActionError(result.error); return }
-      window.location.reload()
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast('Voto MVP inviato! ⭐', 'success')
     })
   }
 
   async function handleSaveComment() {
-    setActionError(null)
     startTransition(async () => {
       const result = await submitMatchComment(matchId, commentText)
-      if (result.error) { setActionError(result.error); return }
-      window.location.reload()
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast('Commento salvato +8 XP 📝', 'success')
     })
   }
 
   async function handleVoteTemplatePoll(pollId: string) {
     const idx = selectedOptionByPoll[pollId]
     if (idx === undefined || idx < 0) return
-    setActionError(null)
     startTransition(async () => {
       const result = await submitPollVote(matchId, pollId, idx)
-      if (result.error) { setActionError(result.error); return }
-      window.location.reload()
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast('Voto inviato! ✅', 'success')
     })
   }
 
@@ -281,7 +281,7 @@ export default function MatchDetailPage() {
     setIsFinalizing(true)
     await finalizePostMatchWindow(matchId)
     setIsFinalizing(false)
-    window.location.reload()
+    router.refresh()
   }
 
   useEffect(() => {
@@ -509,8 +509,6 @@ export default function MatchDetailPage() {
 
       {!isPlayed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {actionError && <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{actionError}</p>}
-
           {isOpen && !myRegistration && (
             <Button onClick={handleRegister} loading={isPending} fullWidth size="lg">
               {spotsLeft > 0 ? `Iscriviti (${spotsLeft} posti rimasti)` : 'Entra in lista attesa'}
@@ -542,18 +540,18 @@ export default function MatchDetailPage() {
                 Modifica
               </Link>
               {isOpen && (
-                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await lockMatch(matchId); window.location.reload() })} loading={isPending}>
+                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await lockMatch(matchId); router.refresh() })} loading={isPending}>
                   Chiudi iscrizioni
                 </Button>
               )}
               {match.status === 'draft' && (
-                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); window.location.reload() })} loading={isPending}>
+                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); router.refresh() })} loading={isPending}>
                   Apri iscrizioni
                 </Button>
               )}
               {isLocked && (
                 <>
-                  <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); window.location.reload() })} loading={isPending}>
+                  <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); router.refresh() })} loading={isPending}>
                     Riapri
                   </Button>
                   <Link href={`/matches/${matchId}/teams`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
