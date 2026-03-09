@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="100" fill="#0A0C12"/>
+
+  <!-- Subtle glow ring behind K -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#C8FF6B" stroke-width="2" opacity="0.12"/>
+
+  <!-- Soccer ball pentagon accents (top-right cluster) -->
+  <circle cx="362" cy="152" r="8" fill="#C8FF6B" opacity="0.35"/>
+  <circle cx="385" cy="135" r="5" fill="#C8FF6B" opacity="0.22"/>
+  <circle cx="372" cy="172" r="4" fill="#C8FF6B" opacity="0.18"/>
+
+  <!-- Soccer ball pentagon accents (bottom-left cluster) -->
+  <circle cx="150" cy="362" r="8" fill="#C8FF6B" opacity="0.35"/>
+  <circle cx="127" cy="378" r="5" fill="#C8FF6B" opacity="0.22"/>
+  <circle cx="140" cy="342" r="4" fill="#C8FF6B" opacity="0.18"/>
+
+  <!-- K — vertical stroke -->
+  <rect x="118" y="115" width="72" height="282" rx="10" fill="#C8FF6B"/>
+
+  <!-- K — upper diagonal arm -->
+  <!-- Goes from mid-vertical (190, 256) to top-right (420, 115) -->
+  <polygon points="190,215 190,256 420,115 420,74" fill="#C8FF6B"/>
+
+  <!-- K — lower diagonal arm -->
+  <!-- Goes from mid-vertical (190, 256) to bottom-right (420, 397) -->
+  <polygon points="190,256 190,297 420,438 420,397" fill="#C8FF6B"/>
+
+  <!-- Lime dot accent — top right of K -->
+  <circle cx="400" cy="90" r="16" fill="#C8FF6B" opacity="0.6"/>
+
+  <!-- Lime dot accent — bottom right of K -->
+  <circle cx="400" cy="422" r="16" fill="#C8FF6B" opacity="0.6"/>
+</svg>

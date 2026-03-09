@@ -1,0 +1,225 @@
+'use client'
+
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+
+const ROLE_OPTIONS = [
+  { value: 'D', label: 'Difensore', emoji: '🛡️' },
+  { value: 'C', label: 'Centrocampista', emoji: '🧠' },
+  { value: 'E', label: 'Esterno', emoji: '⚡' },
+  { value: 'W', label: 'Trequartista', emoji: '🪄' },
+  { value: 'A', label: 'Attaccante', emoji: '🎯' },
+] as const
+
+type RoleValue = typeof ROLE_OPTIONS[number]['value']
+
+export default function ProfileEditPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [preferredRole, setPreferredRole] = useState<RoleValue | ''>('')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { router.push('/login'); return }
+      supabase
+        .from('profiles')
+        .select('username, full_name, preferred_role')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setUsername(data.username ?? '')
+            setFullName(data.full_name ?? '')
+            setPreferredRole((data.preferred_role as RoleValue) ?? '')
+          }
+          setLoading(false)
+        })
+    })
+  }, [router])
+
+  const handleSave = () => {
+    setError(null)
+    if (!username.trim()) { setError('Lo username è obbligatorio'); return }
+    if (username.trim().length < 3) { setError('Lo username deve avere almeno 3 caratteri'); return }
+
+    startTransition(async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error: err } = await supabase
+        .from('profiles')
+        .update({
+          username: username.trim().toLowerCase(),
+          full_name: fullName.trim() || null,
+          preferred_role: preferredRole || null,
+        })
+        .eq('id', user.id)
+
+      if (err) {
+        if (err.code === '23505') setError('Questo username è già in uso')
+        else setError(err.message)
+      } else {
+        setSuccess(true)
+        setTimeout(() => router.push('/profile'), 1200)
+      }
+    })
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    background: 'var(--color-elevated)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--color-text-1)',
+    fontSize: '0.9375rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+    boxSizing: 'border-box',
+  }
+
+  if (loading) return (
+    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}>
+      <span style={{ color: 'var(--color-text-3)', fontSize: '0.875rem' }}>Caricamento…</span>
+    </div>
+  )
+
+  return (
+    <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <Link href="/profile" style={{ color: 'var(--color-text-3)', fontSize: '1.25rem', textDecoration: 'none', lineHeight: 1 }}>
+          ←
+        </Link>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
+          Modifica Profilo
+        </h1>
+      </div>
+
+      {/* Success */}
+      {success && (
+        <div style={{ padding: '0.75rem 1rem', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', color: '#22c55e', fontWeight: 600 }}>
+          ✓ Profilo aggiornato!
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{ padding: '0.75rem 1rem', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', color: 'var(--color-danger)' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Form */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+
+        {/* Username */}
+        <div>
+          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.375rem' }}>
+            Username *
+          </label>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-3)', fontSize: '0.9375rem' }}>@</span>
+            <input
+              value={username}
+              onChange={e => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+              maxLength={30}
+              placeholder="tuousername"
+              style={{ ...inputStyle, paddingLeft: '1.75rem' }}
+            />
+          </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--color-text-3)', marginTop: '0.25rem' }}>
+            Solo lettere, numeri e underscore
+          </p>
+        </div>
+
+        {/* Full name */}
+        <div>
+          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.375rem' }}>
+            Nome Completo
+          </label>
+          <input
+            value={fullName}
+            onChange={e => setFullName(e.target.value)}
+            maxLength={80}
+            placeholder="Mario Rossi"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Preferred role */}
+        <div>
+          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.625rem' }}>
+            Ruolo Preferito
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {ROLE_OPTIONS.map(opt => {
+              const isSelected = preferredRole === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPreferredRole(isSelected ? '' : opt.value)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    padding: '0.5rem 0.875rem',
+                    background: isSelected ? 'rgba(200,255,107,0.15)' : 'var(--color-elevated)',
+                    border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text-2)',
+                    fontSize: '0.8125rem',
+                    fontFamily: 'var(--font-display)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    fontWeight: isSelected ? 700 : 400,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{opt.emoji}</span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Save button */}
+      <button
+        onClick={handleSave}
+        disabled={isPending || !username.trim()}
+        style={{
+          padding: '0.875rem',
+          background: 'var(--color-primary)',
+          color: 'var(--color-bg)',
+          border: 'none',
+          borderRadius: 'var(--radius-md)',
+          fontFamily: 'var(--font-display)',
+          fontSize: '0.9375rem',
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          cursor: isPending ? 'default' : 'pointer',
+          opacity: isPending ? 0.7 : 1,
+          transition: 'opacity 0.15s ease',
+        }}
+      >
+        {isPending ? 'Salvataggio…' : 'Salva Modifiche'}
+      </button>
+    </div>
+  )
+}

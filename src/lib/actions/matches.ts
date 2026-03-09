@@ -1,0 +1,447 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import type { AsyncResult, Match, MatchRegistration, MatchResult } from '@/types'
+import { calcMatchXP, getLevelInfo, getLevelNumber } from '@/lib/xp'
+
+/* ─── Fetch ─────────────────────────────────────────────────────────────── */
+
+export async function getGroupMatches(groupId: string): Promise<AsyncResult<Array<
+  Match & { registrationCount: number; myRegistration: MatchRegistration | null }
+>>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const [matchesRes, regsRes] = await Promise.all([
+    supabase
+      .from('matches')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('scheduled_at', { ascending: false }),
+    supabase
+      .from('match_registrations')
+      .select('*')
+      .in('match_id', (
+        await supabase
+          .from('matches')
+          .select('id')
+          .eq('group_id', groupId)
+      ).data?.map(m => m.id) ?? []),
+  ])
+
+  if (matchesRes.error) return { data: null, error: matchesRes.error.message }
+
+  const matches = matchesRes.data ?? []
+  const allRegs = regsRes.data ?? []
+
+  return {
+    data: matches.map(m => {
+      const matchRegs = allRegs.filter(r => r.match_id === m.id)
+      const confirmedCount = matchRegs.filter(r => r.status === 'confirmed').length
+      const myReg = matchRegs.find(r => r.user_id === user.id) ?? null
+      return {
+        ...m,
+        status: m.status as Match['status'],
+        registration_deadline: m.registration_deadline,
+        registrationCount: confirmedCount,
+        myRegistration: myReg ? { ...myReg, status: myReg.status as MatchRegistration['status'] } : null,
+      }
+    }),
+    error: null,
+  }
+}
+
+export async function getMatchDetails(matchId: string): Promise<AsyncResult<{
+  match: Match
+  registrations: Array<MatchRegistration & {
+    profile: { username: string; full_name: string | null; avatar_url: string | null }
+  }>
+  result: MatchResult | null
+  myRegistration: MatchRegistration | null
+}>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const [matchRes, regsRes, resultRes] = await Promise.all([
+    supabase.from('matches').select('*').eq('id', matchId).single(),
+    supabase
+      .from('match_registrations')
+      .select('*, profiles(username, full_name, avatar_url)')
+      .eq('match_id', matchId)
+      .eq('status', 'confirmed'),
+    supabase.from('match_results').select('*').eq('match_id', matchId).maybeSingle(),
+  ])
+
+  if (matchRes.error) return { data: null, error: 'Partita non trovata' }
+
+  const myRegRes = await supabase
+    .from('match_registrations')
+    .select('*')
+    .eq('match_id', matchId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  return {
+    data: {
+      match: { ...matchRes.data, status: matchRes.data.status as Match['status'] },
+      registrations: (regsRes.data ?? []).map(r => ({
+        ...r,
+        status: r.status as MatchRegistration['status'],
+        profile: r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null },
+      })),
+      result: resultRes.data ?? null,
+      myRegistration: myRegRes.data
+        ? { ...myRegRes.data, status: myRegRes.data.status as MatchRegistration['status'] }
+        : null,
+    },
+    error: null,
+  }
+}
+
+/* ─── Mutations ─────────────────────────────────────────────────────────── */
+
+export async function createMatch(groupId: string, data: {
+  title: string
+  scheduled_at: string
+  location?: string | null
+  description?: string | null
+  max_players?: number
+  min_players?: number
+  team_size?: number
+  registration_deadline?: string | null
+}): Promise<AsyncResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: match, error } = await supabase
+    .from('matches')
+    .insert({
+      group_id: groupId,
+      title: data.title,
+      scheduled_at: data.scheduled_at,
+      location: data.location ?? null,
+      description: data.description ?? null,
+      max_players: data.max_players ?? 10,
+      min_players: data.min_players ?? 6,
+      team_size: data.team_size ?? 5,
+      registration_deadline: data.registration_deadline ?? null,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/groups/${groupId}`)
+  return { data: { id: match.id }, error: null }
+}
+
+export async function updateMatch(matchId: string, updates: {
+  title?: string
+  scheduled_at?: string
+  location?: string | null
+  description?: string | null
+  max_players?: number
+  min_players?: number
+  status?: Match['status']
+  registration_deadline?: string | null
+}): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('matches')
+    .update(updates)
+    .eq('id', matchId)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+export async function registerForMatch(matchId: string): Promise<AsyncResult<{ status: MatchRegistration['status'] }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  // Check current confirmed count
+  const [matchRes, countRes] = await Promise.all([
+    supabase.from('matches').select('max_players, status').eq('id', matchId).single(),
+    supabase
+      .from('match_registrations')
+      .select('id', { count: 'exact', head: true })
+      .eq('match_id', matchId)
+      .eq('status', 'confirmed'),
+  ])
+
+  if (matchRes.error) return { data: null, error: 'Partita non trovata' }
+  if (matchRes.data.status !== 'open') return { data: null, error: 'Le iscrizioni sono chiuse' }
+
+  const confirmedCount = countRes.count ?? 0
+  const status: MatchRegistration['status'] = confirmedCount < matchRes.data.max_players ? 'confirmed' : 'waitlist'
+
+  // Upsert registration
+  const { error } = await supabase
+    .from('match_registrations')
+    .upsert({ match_id: matchId, user_id: user.id, status }, { onConflict: 'match_id,user_id' })
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: { status }, error: null }
+}
+
+export async function unregisterFromMatch(matchId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('match_registrations')
+    .delete()
+    .eq('match_id', matchId)
+    .eq('user_id', user.id)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+export type MatchResultPayload = {
+  leveledUp: boolean
+  newLevel: number
+  levelName: string
+  xpGained: number
+  oldXP: number
+}
+
+export async function submitMatchResult(matchId: string, data: {
+  team1_score: number
+  team2_score: number
+  mvp_user_id?: string | null
+  notes?: string | null
+}): Promise<AsyncResult<MatchResultPayload>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  // 1. Insert result
+  const { error: resultErr } = await supabase
+    .from('match_results')
+    .insert({ match_id: matchId, created_by: user.id, ...data })
+
+  if (resultErr) return { data: null, error: resultErr.message }
+
+  // 2. Mark match as played + get group_id
+  const { data: matchData } = await supabase
+    .from('matches')
+    .update({ status: 'played' })
+    .eq('id', matchId)
+    .select('group_id')
+    .single()
+
+  const groupId: string | undefined = matchData?.group_id
+
+  // 3. Get confirmed registrations + generated teams
+  const [regsRes, teamsRes] = await Promise.all([
+    supabase
+      .from('match_registrations')
+      .select('user_id, team_id')
+      .eq('match_id', matchId)
+      .eq('status', 'confirmed'),
+    supabase
+      .from('generated_teams')
+      .select('team1_user_ids, team2_user_ids')
+      .eq('match_id', matchId)
+      .eq('is_confirmed', true)
+      .maybeSingle(),
+  ])
+
+  const registrations = regsRes.data ?? []
+  const teams = teamsRes.data
+
+  // 4. Determine team membership for each player
+  const team1Ids = new Set<string>(teams?.team1_user_ids ?? [])
+  const team2Ids = new Set<string>(teams?.team2_user_ids ?? [])
+
+  const { team1_score: s1, team2_score: s2, mvp_user_id: mvpId } = data
+  const isDraw = s1 === s2
+
+  function getOutcome(userId: string): 'win' | 'draw' | 'loss' | 'participation' {
+    if (!teams) return 'participation'
+    if (team1Ids.has(userId)) {
+      if (isDraw) return 'draw'
+      return s1 > s2 ? 'win' : 'loss'
+    }
+    if (team2Ids.has(userId)) {
+      if (isDraw) return 'draw'
+      return s2 > s1 ? 'win' : 'loss'
+    }
+    return 'participation'
+  }
+
+  // 5. Award XP + update player_stats for each participant
+  const profileUpdates: Promise<unknown>[] = []
+
+  for (const reg of registrations) {
+    const uid = reg.user_id
+    const outcome = getOutcome(uid)
+    const isMVP = mvpId === uid
+    const xpGain = calcMatchXP({ outcome, isMVP })
+
+    const isWin   = outcome === 'win'
+    const isDraw_ = outcome === 'draw'
+    const isLoss  = outcome === 'loss'
+
+    // Upsert player_stats
+    if (groupId) {
+      profileUpdates.push(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).rpc('increment_player_stats', {
+          p_user_id:     uid,
+          p_group_id:    groupId,
+          p_played:      1,
+          p_won:         isWin  ? 1 : 0,
+          p_drawn:       isDraw_ ? 1 : 0,
+          p_lost:        isLoss ? 1 : 0,
+          p_mvp:         isMVP ? 1 : 0,
+          p_xp:          xpGain,
+        }).catch(() => {
+          // Fallback: manual upsert if RPC not available
+          return supabase
+            .from('player_stats')
+            .upsert({
+              user_id:       uid,
+              group_id:      groupId,
+              matches_played: 1,
+              matches_won:   isWin  ? 1 : 0,
+              matches_drawn: isDraw_ ? 1 : 0,
+              matches_lost:  isLoss ? 1 : 0,
+              mvp_count:     isMVP ? 1 : 0,
+              xp_from_matches: xpGain,
+            }, { onConflict: 'user_id,group_id', ignoreDuplicates: false })
+        })
+      )
+    }
+
+    // Increment profile XP
+    profileUpdates.push(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc('increment_profile_xp', { p_user_id: uid, p_xp: xpGain }).catch(async () => {
+        // Fallback: read-then-write
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('xp')
+          .eq('id', uid)
+          .single()
+        const newXP = (prof?.xp ?? 0) + xpGain
+        const newLevel = getLevelNumber(newXP)
+        return supabase
+          .from('profiles')
+          .update({ xp: newXP, level: newLevel })
+          .eq('id', uid)
+      })
+    )
+  }
+
+  await Promise.allSettled(profileUpdates)
+
+  // 6. Get caller's XP before + after for level-up detection
+  const myXPBefore = (() => {
+    // We saved nothing before — use a secondary query
+    return 0
+  })()
+
+  const { data: myProfile } = await supabase
+    .from('profiles')
+    .select('xp, level')
+    .eq('id', user.id)
+    .single()
+
+  const myReg = registrations.find(r => r.user_id === user.id)
+  const myOutcome = myReg ? getOutcome(user.id) : 'participation'
+  const myIsMVP = mvpId === user.id
+  const myXPGained = calcMatchXP({ outcome: myOutcome, isMVP: myIsMVP })
+  const xpBeforeThisMatch = (myProfile?.xp ?? 0) - myXPGained
+  const oldLevel = getLevelNumber(Math.max(0, xpBeforeThisMatch))
+  const newLevel = myProfile?.level ?? 1
+  const leveledUp = newLevel > oldLevel
+  const { current: levelEntry } = getLevelInfo(myProfile?.xp ?? 0)
+
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  revalidatePath('/rankings')
+
+  return {
+    data: {
+      leveledUp,
+      newLevel,
+      levelName: levelEntry.name,
+      xpGained: myXPGained,
+      oldXP: Math.max(0, xpBeforeThisMatch),
+    },
+    error: null,
+  }
+}
+
+export async function lockMatch(matchId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('matches')
+    .update({ status: 'locked' })
+    .eq('id', matchId)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+export async function openMatch(matchId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('matches')
+    .update({ status: 'open' })
+    .eq('id', matchId)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+// ─── Ratings ─────────────────────────────────────────────────────────────
+
+type SkillRatings = {
+  velocita: number; resistenza: number; forza: number; salto: number; agilita: number
+  tecnica_palla: number; dribbling: number; passaggio: number; tiro: number; colpo_di_testa: number
+  lettura_gioco: number; posizionamento: number; pressing: number; costruzione: number
+  marcatura: number; tackle: number; intercettamento: number; copertura: number
+  finalizzazione: number; assist_making: number
+  leadership: number; comunicazione: number; mentalita_competitiva: number; fair_play: number
+}
+
+export async function submitRatings(
+  matchId: string,
+  groupId: string,
+  ratings: Array<{ rateeId: string; skills: SkillRatings }>
+): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const inserts = ratings.map(r => ({
+    rater_id: user.id,
+    ratee_id: r.rateeId,
+    group_id: groupId,
+    match_id: matchId,
+    ...r.skills,
+  }))
+
+  const { error } = await supabase
+    .from('player_ratings')
+    .upsert(inserts, { onConflict: 'rater_id,ratee_id,match_id', ignoreDuplicates: false })
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}

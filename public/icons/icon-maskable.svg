@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full bleed background (no rounded corners — maskable icons are clipped by OS) -->
+  <rect width="512" height="512" fill="#0A0C12"/>
+
+  <!-- Safe zone is inner 80% = 204px padding each side, content in 308x308 centered at 256,256 -->
+  <!-- Scale K to fit safe zone (approx 60% of canvas = 307px wide starting at ~102) -->
+
+  <!-- Glow ring -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#C8FF6B" stroke-width="2" opacity="0.15"/>
+
+  <!-- K — vertical stroke (scaled to safe zone) -->
+  <rect x="140" y="136" width="55" height="240" rx="8" fill="#C8FF6B"/>
+
+  <!-- K — upper diagonal arm -->
+  <polygon points="195,212 195,256 358,136 358,104" fill="#C8FF6B"/>
+
+  <!-- K — lower diagonal arm -->
+  <polygon points="195,256 195,300 358,408 358,376" fill="#C8FF6B"/>
+
+  <!-- Corner accents -->
+  <circle cx="338" cy="118" r="12" fill="#C8FF6B" opacity="0.55"/>
+  <circle cx="338" cy="394" r="12" fill="#C8FF6B" opacity="0.55"/>
+</svg>

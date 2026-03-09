@@ -1,26 +1,529 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================
+   KICKSY — Stadium Night Design System
+   Tailwind CSS v4 @theme tokens
+   ============================================================ */
+
+@theme {
+  /* --- Backgrounds --- */
+  --color-bg:           #0A0C12;
+  --color-surface:      #111318;
+  --color-elevated:     #181C25;
+  --color-overlay:      rgba(10, 12, 18, 0.85);
+  --color-border:       rgba(255, 255, 255, 0.07);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+
+  /* --- Brand --- */
+  --color-primary:      #C8FF6B;
+  --color-primary-dim:  rgba(200, 255, 107, 0.15);
+  --color-primary-glow: rgba(200, 255, 107, 0.35);
+  --color-secondary:    #FFB800;
+  --color-secondary-dim: rgba(255, 184, 0, 0.15);
+  --color-danger:       #FF3B5C;
+  --color-danger-dim:   rgba(255, 59, 92, 0.15);
+  --color-info:         #3B82F6;
+  --color-info-dim:     rgba(59, 130, 246, 0.15);
+
+  /* --- Text --- */
+  --color-text-1:       #F0F2F5;
+  --color-text-2:       #8891A4;
+  --color-text-3:       #4A5166;
+  --color-text-inverse: #0A0C12;
+
+  /* --- Macro skill category colors --- */
+  --color-atletismo:    #3B82F6;
+  --color-tecnica:      #C8FF6B;
+  --color-tattica:      #FFB800;
+  --color-mentalita:    #A855F7;
+  --color-difesa:       #EF4444;
+  --color-attacco:      #F97316;
+
+  /* --- Badge tiers --- */
+  --color-badge-bronze: #CD7F32;
+  --color-badge-silver: #C0C0C0;
+  --color-badge-gold:   #FFD700;
+
+  /* --- Typography --- */
+  --font-display:  'Barlow Condensed', sans-serif;
+  --font-ui:       'Outfit', sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+
+  /* --- Type scale --- */
+  --text-display-xl:  clamp(2.5rem, 6vw, 4rem);
+  --text-display-lg:  clamp(2rem, 4vw, 3rem);
+  --text-display-md:  clamp(1.5rem, 3vw, 2.25rem);
+  --text-display-sm:  clamp(1.25rem, 2.5vw, 1.75rem);
+  --text-body-lg:     1.125rem;
+  --text-body-md:     1rem;
+  --text-body-sm:     0.875rem;
+  --text-body-xs:     0.75rem;
+  --text-label:       0.6875rem;
+
+  /* --- Spacing --- */
+  --space-page:  1.25rem;   /* 20px horizontal page padding */
+
+  /* --- Radius --- */
+  --radius-xs:  0.375rem;
+  --radius-sm:  0.5rem;
+  --radius-md:  0.75rem;
+  --radius-lg:  1rem;
+  --radius-xl:  1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
+
+  /* --- Shadows --- */
+  --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 8px 40px rgba(0, 0, 0, 0.6);
+  --shadow-primary: 0 0 24px rgba(200, 255, 107, 0.25);
+  --shadow-danger:  0 0 24px rgba(255, 59, 92, 0.25);
+
+  /* --- Transitions --- */
+  --duration-fast:    150ms;
+  --duration-normal:  250ms;
+  --duration-slow:    400ms;
+  --duration-reveal:  600ms;
+  --ease-spring:      cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth:      cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:         cubic-bezier(0, 0, 0.2, 1);
+
+  /* --- Z-index scale --- */
+  --z-base:     1;
+  --z-raised:   10;
+  --z-overlay:  100;
+  --z-modal:    200;
+  --z-toast:    300;
+  --z-nav:      400;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ============================================================
+   BASE RESET & GLOBAL STYLES
+   ============================================================ */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-text-1);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Mobile viewport height fix */
+    height: -webkit-fill-available;
+  }
+
+  body {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    color: var(--color-text-1);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+    overflow-x: hidden;
+    /* Atmospheric background */
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200, 255, 107, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(255, 184, 0, 0.04) 0%, transparent 50%);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+
+  /* Score / stat numbers use display font */
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Remove default list styles */
+  ul, ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Smooth image rendering */
+  img, svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Remove button defaults */
+  button {
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: inherit;
+  }
+
+  /* Focus visible ring — lime */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-text-3);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-2);
+  }
+
+  /* Selection */
+  ::selection {
+    background: var(--color-primary-dim);
+    color: var(--color-primary);
+  }
+
+  /* Input/textarea reset */
+  input, textarea, select {
+    font-family: var(--font-ui);
+    background-color: transparent;
+    color: var(--color-text-1);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-text-3);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+@layer utilities {
+
+  /* --- Glow effects --- */
+  .glow-primary {
+    box-shadow: 0 0 20px var(--color-primary-glow), 0 0 60px rgba(200, 255, 107, 0.1);
+  }
+
+  .glow-text-primary {
+    text-shadow: 0 0 20px rgba(200, 255, 107, 0.6);
+  }
+
+  .glow-secondary {
+    box-shadow: 0 0 20px rgba(255, 184, 0, 0.4), 0 0 60px rgba(255, 184, 0, 0.1);
+  }
+
+  .glow-danger {
+    box-shadow: 0 0 20px rgba(255, 59, 92, 0.4), 0 0 60px rgba(255, 59, 92, 0.1);
+  }
+
+  /* --- Skeleton loader --- */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-elevated) 25%,
+      rgba(255, 255, 255, 0.05) 50%,
+      var(--color-elevated) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+  }
+
+  /* --- Position badge (shirt number / role) --- */
+  .position-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.25rem;
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: var(--radius-xs);
+    border: 1px solid currentColor;
+  }
+
+  .position-badge-D {
+    color: var(--color-atletismo);
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+
+  .position-badge-C {
+    color: var(--color-tattica);
+    background: rgba(255, 184, 0, 0.15);
+    border-color: rgba(255, 184, 0, 0.4);
+  }
+
+  .position-badge-E {
+    color: var(--color-tecnica);
+    background: rgba(200, 255, 107, 0.15);
+    border-color: rgba(200, 255, 107, 0.4);
+  }
+
+  .position-badge-W {
+    color: var(--color-mentalita);
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.4);
+  }
+
+  .position-badge-A {
+    color: var(--color-attacco);
+    background: rgba(249, 115, 22, 0.15);
+    border-color: rgba(249, 115, 22, 0.4);
+  }
+
+  /* --- Pitch lines overlay (decorative) --- */
+  .pitch-lines {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pitch-lines::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* --- Noise texture overlay --- */
+  .grain {
+    position: relative;
+  }
+
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: overlay;
+    opacity: 0.4;
+  }
+
+  /* --- Glass card surface --- */
+  .glass {
+    background: rgba(17, 19, 24, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+  }
+
+  /* --- Surface variants --- */
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+
+  .surface-elevated {
+    background-color: var(--color-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* --- Text utilities --- */
+  .text-gradient-primary {
+    background: linear-gradient(135deg, #C8FF6B 0%, #90FF00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #FFD700 0%, #FFB800 50%, #FF8C00 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* --- Safe area padding (iOS notch / home indicator) --- */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* --- Touch target minimum (44×44) --- */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* --- XP bar progress --- */
+  .xp-bar {
+    height: 6px;
+    background: var(--color-elevated);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary) 0%, #90FF00 100%);
+    border-radius: var(--radius-full);
+    transition: width 0.8s var(--ease-spring);
+    box-shadow: 0 0 8px rgba(200, 255, 107, 0.5);
+  }
+
+  /* --- Stat number --- */
+  .stat-number {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  /* --- Level badge --- */
+  .level-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-full);
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+  }
+
+  /* --- Divider with text --- */
+  .divider-text {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--color-text-3);
+    font-size: var(--text-body-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .divider-text::before,
+  .divider-text::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  /* --- Pulse dot (online/active indicator) --- */
+  .pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+  }
+
+  .pulse-dot::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    opacity: 0.4;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* --- Bottom nav bar --- */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--z-nav);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(10, 12, 18, 0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* ============================================================
+   KEYFRAME ANIMATIONS
+   ============================================================ */
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50%       { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes score-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes xp-flash {
+  0%   { opacity: 0; transform: scale(0.8) translateY(8px); }
+  30%  { opacity: 1; transform: scale(1.05) translateY(-4px); }
+  70%  { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.95) translateY(-12px); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes card-flip {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+@keyframes level-up-burst {
+  0%   { transform: scale(0); opacity: 1; }
+  60%  { transform: scale(1.4); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
 }
