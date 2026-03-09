@@ -293,6 +293,57 @@ async function ensureMvpPollForMatch(
   return inserted.id
 }
 
+async function ensureTemplatePollsForMatch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matchId: string,
+  groupId: string,
+  createdBy: string,
+  participantIds: string[],
+) {
+  const { data: existing } = await supabase
+    .from('polls')
+    .select('id')
+    .eq('match_id', matchId)
+    .like('kind', 'template_%')
+    .limit(1)
+  if ((existing ?? []).length > 0) return
+
+  const { data: templatesRes } = await supabase
+    .from('poll_templates')
+    .select('id, question_it, options_it, is_global, group_id')
+    .or(`is_global.eq.true,group_id.eq.${groupId}`)
+
+  const templates = (templatesRes ?? []) as Array<{
+    id: string
+    question_it: string
+    options_it: string[]
+    is_global: boolean
+    group_id: string | null
+  }>
+
+  if (!templates || templates.length === 0) return
+  const participantOptions = Array.from(new Set(participantIds))
+  if (participantOptions.length === 0) return
+
+  const payload = templates.map((t) => {
+    const rawOptions = t.options_it ?? []
+    const isPlayerChoice =
+      rawOptions.length <= 1 &&
+      (rawOptions[0]?.toLowerCase().includes('scegli un giocatore') || rawOptions[0]?.toLowerCase().includes('choose a player'))
+    return {
+      match_id: matchId,
+      group_id: groupId,
+      kind: isPlayerChoice ? 'template_player_choice' : 'template_generic',
+      question: t.question_it,
+      options: isPlayerChoice ? participantOptions : rawOptions,
+      closes_at: getPostMatchCloseISO(),
+      created_by: createdBy,
+    }
+  })
+
+  await supabase.from('polls').insert(payload)
+}
+
 async function generateRecapText(input: {
   team1Score: number
   team2Score: number
@@ -614,6 +665,13 @@ export async function submitMatchResult(matchId: string, data: {
       user.id,
       registrations.map((r) => r.user_id),
     )
+    await ensureTemplatePollsForMatch(
+      supabase,
+      matchId,
+      groupId,
+      user.id,
+      registrations.map((r) => r.user_id),
+    )
   }
 
   if ((data.playerStats ?? []).length > 0 && groupId) {
@@ -723,6 +781,58 @@ export async function submitMvpVote(matchId: string, votedUserId: string): Promi
     })
 
   if (error) return { data: null, error: error.message }
+  await awardProfileXP(user.id, XP_FOR_MVP_VOTE)
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  return { data: true, error: null }
+}
+
+export async function submitPollVote(matchId: string, pollId: string, optionIndex: number): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const [{ data: myReg }, { data: poll }] = await Promise.all([
+    supabase
+      .from('match_registrations')
+      .select('status')
+      .eq('match_id', matchId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('polls')
+      .select('id, closes_at, options, kind')
+      .eq('id', pollId)
+      .eq('match_id', matchId)
+      .maybeSingle(),
+  ])
+
+  if (!myReg || myReg.status !== 'confirmed') return { data: null, error: 'Solo i partecipanti possono votare' }
+  if (!poll) return { data: null, error: 'Sondaggio non trovato' }
+  if (poll.closes_at && new Date(poll.closes_at).getTime() <= Date.now()) {
+    return { data: null, error: 'Sondaggio chiuso' }
+  }
+  if (optionIndex < 0 || optionIndex >= poll.options.length) {
+    return { data: null, error: 'Opzione non valida' }
+  }
+
+  const { data: existing } = await supabase
+    .from('poll_votes')
+    .select('id')
+    .eq('poll_id', poll.id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (existing?.id) return { data: null, error: 'Hai già votato questo sondaggio' }
+
+  const { error } = await supabase
+    .from('poll_votes')
+    .insert({
+      poll_id: poll.id,
+      user_id: user.id,
+      option_index: optionIndex,
+    })
+  if (error) return { data: null, error: error.message }
+
   await awardProfileXP(user.id, XP_FOR_MVP_VOTE)
   revalidatePath(`/matches/${matchId}`)
   revalidatePath('/profile')
@@ -878,21 +988,57 @@ export async function finalizePostMatchWindow(matchId: string): Promise<AsyncRes
 
   let recapGenerated = false
   if (!recapExisting?.id) {
-    const [{ data: comments }, { data: users }] = await Promise.all([
+    const [{ data: comments }, { data: users }, { data: allPolls }] = await Promise.all([
       admin.from('match_comments').select('comment').eq('match_id', matchId),
       admin
         .from('profiles')
         .select('id, username, full_name')
         .in('id', [mvpUserId].filter(Boolean) as string[]),
+      admin.from('polls').select('id, question, options, kind').eq('match_id', matchId),
     ])
     const mvpName = users?.[0] ? (users[0].full_name ?? users[0].username) : null
+    const polls = allPolls ?? []
+    const pollIds = polls.map((p) => p.id)
+    const { data: allVotes } = pollIds.length > 0
+      ? await admin.from('poll_votes').select('poll_id, option_index').in('poll_id', pollIds)
+      : { data: [] }
+
+    const idOptions = new Set<string>()
+    for (const p of polls) {
+      if (p.kind === 'mvp' || p.kind === 'template_player_choice') {
+        for (const opt of p.options) idOptions.add(opt)
+      }
+    }
+    const { data: optionProfiles } = idOptions.size > 0
+      ? await admin.from('profiles').select('id, username, full_name').in('id', Array.from(idOptions))
+      : { data: [] }
+    const profileMap = new Map((optionProfiles ?? []).map((p) => [p.id, p.full_name ?? p.username]))
+
+    const pollSummaries: string[] = []
+    for (const p of polls) {
+      const votes = (allVotes ?? []).filter((v) => v.poll_id === p.id)
+      if (votes.length === 0) continue
+      const counts = new Map<number, number>()
+      for (const v of votes) counts.set(v.option_index, (counts.get(v.option_index) ?? 0) + 1)
+      const ranked = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
+      const top = ranked.slice(0, 2).map(([idx, n]) => {
+        const raw = p.options[idx] ?? `Opzione ${idx + 1}`
+        const label = (p.kind === 'mvp' || p.kind === 'template_player_choice') ? (profileMap.get(raw) ?? raw) : raw
+        return `${label} (${n})`
+      }).join(', ')
+      pollSummaries.push(`${p.question}: ${top}`)
+    }
+
     const recap = await generateRecapText({
       team1Score: result?.team1_score ?? 0,
       team2Score: result?.team2_score ?? 0,
       team1Name: group?.team1_name ?? 'Squadra A',
       team2Name: group?.team2_name ?? 'Squadra B',
       mvpName,
-      comments: (comments ?? []).map((c) => c.comment),
+      comments: [
+        ...(comments ?? []).map((c) => c.comment),
+        ...pollSummaries,
+      ],
     })
 
     const { error: recapErr } = await admin

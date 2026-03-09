@@ -10,6 +10,7 @@ import {
   openMatch,
   registerForMatch,
   submitMatchComment,
+  submitPollVote,
   submitMvpVote,
   unregisterFromMatch,
 } from '@/lib/actions/matches'
@@ -37,6 +38,14 @@ interface MvpPollData {
   options: string[]
 }
 
+interface MatchPollData {
+  id: string
+  kind: string
+  question: string
+  closes_at: string | null
+  options: string[]
+}
+
 type MatchCommentRow = {
   id: string
   user_id: string
@@ -58,6 +67,11 @@ export default function MatchDetailPage() {
   const [mvpVotes, setMvpVotes] = useState<Record<string, number>>({})
   const [myMvpVoteUserId, setMyMvpVoteUserId] = useState<string | null>(null)
   const [selectedMvpUserId, setSelectedMvpUserId] = useState('')
+  const [templatePolls, setTemplatePolls] = useState<MatchPollData[]>([])
+  const [templatePollVotes, setTemplatePollVotes] = useState<Record<string, Record<number, number>>>({})
+  const [myVotesByPoll, setMyVotesByPoll] = useState<Record<string, number>>({})
+  const [selectedOptionByPoll, setSelectedOptionByPoll] = useState<Record<string, number>>({})
+  const [profileNameById, setProfileNameById] = useState<Record<string, string>>({})
   const [commentText, setCommentText] = useState('')
   const [allComments, setAllComments] = useState<MatchCommentRow[]>([])
   const [recapText, setRecapText] = useState<string | null>(null)
@@ -87,7 +101,7 @@ export default function MatchDetailPage() {
 
       if (matchRes.error) { setError('Partita non trovata'); setLoading(false); return }
 
-      const [{ data: adminMember }, { data: groupRes }, { data: pollRes }, { data: commentsRes }, { data: recapRes }, { data: myCommentRes }] = await Promise.all([
+      const [{ data: adminMember }, { data: groupRes }, { data: pollsRes }, { data: commentsRes }, { data: recapRes }, { data: myCommentRes }] = await Promise.all([
         supabase
           .from('group_members')
           .select('role')
@@ -102,10 +116,8 @@ export default function MatchDetailPage() {
           .single(),
         supabase
           .from('polls')
-          .select('id, closes_at, options')
-          .eq('match_id', matchId)
-          .eq('kind', 'mvp')
-          .maybeSingle(),
+          .select('id, kind, question, closes_at, options')
+          .eq('match_id', matchId),
         supabase
           .from('match_comments')
           .select('id, user_id, comment, profiles(username, full_name)')
@@ -124,22 +136,63 @@ export default function MatchDetailPage() {
           .maybeSingle(),
       ])
 
-      if (pollRes?.id) {
-        const [{ data: votesRes }, { data: myVoteRes }] = await Promise.all([
-          supabase.from('poll_votes').select('option_index').eq('poll_id', pollRes.id),
-          supabase.from('poll_votes').select('option_index').eq('poll_id', pollRes.id).eq('user_id', user.id).maybeSingle(),
+      const polls = (pollsRes ?? []) as MatchPollData[]
+      const mvp = polls.find((p) => p.kind === 'mvp') ?? null
+      setMvpPoll(mvp ? { id: mvp.id, closes_at: mvp.closes_at, options: mvp.options } : null)
+      setTemplatePolls(polls.filter((p) => p.kind !== 'mvp'))
+
+      if (polls.length > 0) {
+        const pollIds = polls.map((p) => p.id)
+        const [{ data: allVotes }, { data: myVotes }] = await Promise.all([
+          supabase.from('poll_votes').select('poll_id, option_index').in('poll_id', pollIds),
+          supabase.from('poll_votes').select('poll_id, option_index').in('poll_id', pollIds).eq('user_id', user.id),
         ])
-        const counts: Record<string, number> = {}
-        for (const vote of votesRes ?? []) {
-          const uid = pollRes.options[vote.option_index]
-          if (!uid) continue
-          counts[uid] = (counts[uid] ?? 0) + 1
+
+        const voteCountsByPoll: Record<string, Record<number, number>> = {}
+        for (const vote of allVotes ?? []) {
+          voteCountsByPoll[vote.poll_id] = voteCountsByPoll[vote.poll_id] ?? {}
+          voteCountsByPoll[vote.poll_id][vote.option_index] = (voteCountsByPoll[vote.poll_id][vote.option_index] ?? 0) + 1
         }
-        setMvpVotes(counts)
-        setMyMvpVoteUserId(myVoteRes ? (pollRes.options[myVoteRes.option_index] ?? null) : null)
-        setMvpPoll(pollRes)
+        setTemplatePollVotes(voteCountsByPoll)
+
+        const myMap: Record<string, number> = {}
+        for (const vote of myVotes ?? []) myMap[vote.poll_id] = vote.option_index
+        setMyVotesByPoll(myMap)
+
+        if (mvp) {
+          const counts: Record<string, number> = {}
+          for (const vote of allVotes ?? []) {
+            if (vote.poll_id !== mvp.id) continue
+            const uid = mvp.options[vote.option_index]
+            if (!uid) continue
+            counts[uid] = (counts[uid] ?? 0) + 1
+          }
+          setMvpVotes(counts)
+          setMyMvpVoteUserId(myMap[mvp.id] !== undefined ? (mvp.options[myMap[mvp.id]] ?? null) : null)
+        }
+
+        const playerOptionIds = new Set<string>()
+        for (const p of polls) {
+          if (p.kind === 'mvp' || p.kind === 'template_player_choice') {
+            for (const opt of p.options) playerOptionIds.add(opt)
+          }
+        }
+        if (playerOptionIds.size > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, username, full_name')
+            .in('id', Array.from(playerOptionIds))
+          const map: Record<string, string> = {}
+          for (const p of profs ?? []) map[p.id] = p.full_name ?? p.username
+          setProfileNameById(map)
+        } else {
+          setProfileNameById({})
+        }
       } else {
-        setMvpPoll(null)
+        setMyVotesByPoll({})
+        setTemplatePollVotes({})
+        setMvpVotes({})
+        setMyMvpVoteUserId(null)
       }
 
       setCommentText(myCommentRes?.comment ?? '')
@@ -207,6 +260,17 @@ export default function MatchDetailPage() {
     setActionError(null)
     startTransition(async () => {
       const result = await submitMatchComment(matchId, commentText)
+      if (result.error) { setActionError(result.error); return }
+      window.location.reload()
+    })
+  }
+
+  async function handleVoteTemplatePoll(pollId: string) {
+    const idx = selectedOptionByPoll[pollId]
+    if (idx === undefined || idx < 0) return
+    setActionError(null)
+    startTransition(async () => {
+      const result = await submitPollVote(matchId, pollId, idx)
       if (result.error) { setActionError(result.error); return }
       window.location.reload()
     })
@@ -323,6 +387,68 @@ export default function MatchDetailPage() {
           {Object.keys(mvpVotes).length > 0 && !result.mvp_user_id && (
             <div style={{ marginTop: '0.65rem', fontSize: '0.74rem', color: 'var(--color-text-3)' }}>
               Voti raccolti: {Object.values(mvpVotes).reduce((a, b) => a + b, 0)}
+            </div>
+          )}
+
+          {templatePolls.length > 0 && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+              <div style={{ fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, fontSize: '0.78rem', color: 'var(--color-text-2)' }}>
+                Votazioni post-partita
+              </div>
+              {templatePolls.map((poll) => {
+                const closesAt = poll.closes_at ? new Date(poll.closes_at) : null
+                const isOpen = !!(closesAt && closesAt.getTime() > Date.now())
+                const myVote = myVotesByPoll[poll.id]
+                const counts = templatePollVotes[poll.id] ?? {}
+                const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0)
+
+                return (
+                  <div key={poll.id} style={{ padding: '0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-elevated)' }}>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--color-text-1)', fontWeight: 600, marginBottom: '0.45rem' }}>{poll.question}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      {poll.options.map((opt, idx) => {
+                        const label = (poll.kind === 'template_player_choice') ? (profileNameById[opt] ?? 'Giocatore') : opt
+                        const c = counts[idx] ?? 0
+                        const pct = totalVotes > 0 ? Math.round((c / totalVotes) * 100) : 0
+                        return (
+                          <label key={`${poll.id}-${idx}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', cursor: isOpen && myVote === undefined ? 'pointer' : 'default' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--color-text-1)', fontSize: '0.8rem' }}>
+                              {isOpen && myVote === undefined && (
+                                <input
+                                  type="radio"
+                                  name={`poll-${poll.id}`}
+                                  checked={selectedOptionByPoll[poll.id] === idx}
+                                  onChange={() => setSelectedOptionByPoll((prev) => ({ ...prev, [poll.id]: idx }))}
+                                />
+                              )}
+                              {!isOpen || myVote !== undefined ? (
+                                <span style={{ color: myVote === idx ? 'var(--color-primary)' : 'var(--color-text-3)' }}>
+                                  {myVote === idx ? '✓' : '•'}
+                                </span>
+                              ) : null}
+                              {label}
+                            </span>
+                            <span style={{ color: 'var(--color-text-3)', fontSize: '0.73rem' }}>{c} ({pct}%)</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <div style={{ marginTop: '0.55rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--color-text-3)' }}>
+                        {isOpen ? `Aperto fino a ${closesAt?.toLocaleString('it-IT')}` : 'Chiuso'}
+                      </span>
+                      {isOpen && myVote === undefined && (
+                        <Button type="button" size="sm" onClick={() => handleVoteTemplatePoll(poll.id)} loading={isPending} disabled={selectedOptionByPoll[poll.id] === undefined}>
+                          Vota (+10 XP)
+                        </Button>
+                      )}
+                      {myVote !== undefined && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)' }}>Hai votato</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -481,4 +607,3 @@ export default function MatchDetailPage() {
     </div>
   )
 }
-
