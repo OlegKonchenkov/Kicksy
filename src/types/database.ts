@@ -43,6 +43,8 @@ export type Group = {
   invite_code: string
   invite_link_enabled: boolean
   max_members: number | null
+  team1_name: string
+  team2_name: string
   created_by: string
   created_at: string
   updated_at: string
@@ -202,6 +204,7 @@ export type Poll = {
   id: string
   match_id: string
   group_id: string
+  kind: string
   question: string
   options: string[]
   closes_at: string | null
@@ -215,6 +218,24 @@ export type PollVote = {
   user_id: string
   option_index: number
   voted_at: string
+}
+
+export type MatchComment = {
+  id: string
+  match_id: string
+  user_id: string
+  comment: string
+  created_at: string
+  updated_at: string
+}
+
+export type MatchRecap = {
+  id: string
+  match_id: string
+  summary_text: string
+  model: string | null
+  generated_at: string
+  created_by: string | null
 }
 
 export type Notification = {
@@ -268,6 +289,8 @@ export type Database = {
           invite_code?: string
           invite_link_enabled?: boolean
           max_members?: number | null
+          team1_name?: string
+          team2_name?: string
         }
         Update: {
           name?: string
@@ -277,6 +300,8 @@ export type Database = {
           invite_code?: string
           invite_link_enabled?: boolean
           max_members?: number | null
+          team1_name?: string
+          team2_name?: string
           updated_at?: string
         }
         Relationships: []
@@ -460,6 +485,35 @@ export type Database = {
         Update: Record<string, never>
         Relationships: []
       }
+      match_comments: {
+        Row: MatchComment
+        Insert: {
+          match_id: string
+          user_id: string
+          comment: string
+        }
+        Update: {
+          comment?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      match_recaps: {
+        Row: MatchRecap
+        Insert: {
+          match_id: string
+          summary_text: string
+          model?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          summary_text?: string
+          model?: string | null
+          generated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
       badges: {
         Row: Badge
         Insert: {
@@ -517,12 +571,14 @@ export type Database = {
         Insert: {
           match_id: string
           group_id: string
+          kind?: string
           question: string
           options: string[]
           created_by: string
           closes_at?: string | null
         }
         Update: {
+          kind?: string
           question?: string
           options?: string[]
           closes_at?: string | null

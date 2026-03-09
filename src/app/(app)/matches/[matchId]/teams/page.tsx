@@ -40,6 +40,9 @@ export default function TeamsPage() {
   const [constraints, setConstraints] = useState<NeverTogetherConstraint[]>([])
   const [selectedA, setSelectedA] = useState('')
   const [selectedB, setSelectedB] = useState('')
+  const [groupId, setGroupId] = useState('')
+  const [team1Name, setTeam1Name] = useState('Squadra A')
+  const [team2Name, setTeam2Name] = useState('Squadra B')
 
   const playerMap = useMemo(
     () => Object.fromEntries(players.map((p) => [p.id, p])),
@@ -87,6 +90,17 @@ export default function TeamsPage() {
         .eq('id', matchId)
         .single()
       if (!matchData) { setError('Partita non trovata'); setLoading(false); return }
+      setGroupId(matchData.group_id)
+
+      const { data: groupData } = await supabase
+        .from('groups')
+        .select('team1_name, team2_name')
+        .eq('id', matchData.group_id)
+        .single()
+      if (groupData) {
+        setTeam1Name(groupData.team1_name ?? 'Squadra A')
+        setTeam2Name(groupData.team2_name ?? 'Squadra B')
+      }
 
       const { data: regs } = await supabase
         .from('match_registrations')
@@ -212,6 +226,23 @@ export default function TeamsPage() {
     })
   }
 
+  async function handleSaveTeamNames() {
+    if (!groupId) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('groups')
+      .update({
+        team1_name: team1Name.trim() || 'Squadra A',
+        team2_name: team2Name.trim() || 'Squadra B',
+      })
+      .eq('id', groupId)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    showToast('Nomi squadra aggiornati per il gruppo', 'success')
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', gap: '1rem' }}>
@@ -247,6 +278,19 @@ export default function TeamsPage() {
         <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           {players.length} giocatori • {teamsResult.team1.length}vs{teamsResult.team2.length}
         </p>
+      </div>
+
+      <div style={{ padding: '0.9rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Nomi squadre (persistenti per le prossime partite)
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem' }}>
+          <input value={team1Name} onChange={(e) => setTeam1Name(e.target.value)} placeholder="Squadra A" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-1)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.6rem', fontSize: '0.85rem' }} />
+          <input value={team2Name} onChange={(e) => setTeam2Name(e.target.value)} placeholder="Squadra B" style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-1)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.6rem', fontSize: '0.85rem' }} />
+          <button type="button" onClick={handleSaveTeamNames} style={{ border: '1px solid rgba(200,255,107,.45)', background: 'rgba(200,255,107,.13)', color: 'var(--color-primary)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.75rem', fontFamily: 'var(--font-display)', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer' }}>
+            Salva
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '0.9rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
@@ -289,6 +333,8 @@ export default function TeamsPage() {
         team1Strength={teamsResult.team1Strength}
         team2Strength={teamsResult.team2Strength}
         balanceScore={teamsResult.balanceScore}
+        team1Name={team1Name}
+        team2Name={team2Name}
       />
 
       {!confirmed ? (
@@ -313,4 +359,3 @@ export default function TeamsPage() {
     </div>
   )
 }
-

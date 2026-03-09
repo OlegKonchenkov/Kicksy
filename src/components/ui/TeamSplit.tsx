@@ -19,6 +19,8 @@ interface TeamSplitProps {
   team1Score?: number
   team2Score?: number
   isResult?: boolean
+  team1Name?: string
+  team2Name?: string
 }
 
 function TeamColumn({
@@ -27,12 +29,14 @@ function TeamColumn({
   score,
   isResult,
   side,
+  teamName,
 }: {
   players: TeamPlayer[]
   strength: number
   score?: number
   isResult?: boolean
   side: 'left' | 'right'
+  teamName?: string
 }) {
   const isRight = side === 'right'
 
@@ -47,6 +51,19 @@ function TeamColumn({
       }}
     >
       {/* Score (if result) */}
+      {teamName && (
+        <div
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.68rem',
+            color: 'var(--color-text-3)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {teamName}
+        </div>
+      )}
       {isResult && score !== undefined && (
         <div
           style={{
@@ -134,6 +151,8 @@ export function TeamSplit({
   team1Score,
   team2Score,
   isResult = false,
+  team1Name,
+  team2Name,
 }: TeamSplitProps) {
   const scoreColor =
     balanceScore >= 85 ? '#22c55e'
@@ -197,6 +216,7 @@ export function TeamSplit({
           score={team1Score}
           isResult={isResult}
           side="left"
+          teamName={team1Name}
         />
 
         {/* Divider */}
@@ -235,6 +255,7 @@ export function TeamSplit({
           score={team2Score}
           isResult={isResult}
           side="right"
+          teamName={team2Name}
         />
       </div>
     </div>

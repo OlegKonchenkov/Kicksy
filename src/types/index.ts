@@ -12,6 +12,8 @@ export type {
   GeneratedTeam,
   PlayerStats,
   PlayerRating,
+  MatchComment,
+  MatchRecap,
   Badge,
   PlayerBadge,
   PlayerTitle,

@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { AsyncResult, Match, MatchRegistration, MatchResult } from '@/types'
 import { calcMatchXP, getLevelInfo, getLevelNumber } from '@/lib/xp'
@@ -247,6 +247,88 @@ type MatchPlayerStatInput = {
   assists: number
 }
 
+const POST_MATCH_WINDOW_HOURS = 24
+const XP_FOR_MVP_VOTE = 10
+const XP_FOR_MATCH_COMMENT = 8
+const MIN_MATCH_COMMENT_CHARS = 20
+
+function getPostMatchCloseISO(fromDateISO?: string | null) {
+  const base = fromDateISO ? new Date(fromDateISO) : new Date()
+  return new Date(base.getTime() + POST_MATCH_WINDOW_HOURS * 60 * 60 * 1000).toISOString()
+}
+
+async function ensureMvpPollForMatch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matchId: string,
+  groupId: string,
+  createdBy: string,
+  participants: string[],
+) {
+  const { data: existing } = await supabase
+    .from('polls')
+    .select('id')
+    .eq('match_id', matchId)
+    .eq('kind', 'mvp')
+    .maybeSingle()
+  if (existing?.id) return existing.id
+
+  const uniqueParticipants = Array.from(new Set(participants))
+  if (uniqueParticipants.length === 0) return null
+
+  const { data: inserted, error } = await supabase
+    .from('polls')
+    .insert({
+      match_id: matchId,
+      group_id: groupId,
+      kind: 'mvp',
+      question: 'MVP della partita',
+      options: uniqueParticipants,
+      closes_at: getPostMatchCloseISO(),
+      created_by: createdBy,
+    })
+    .select('id')
+    .single()
+
+  if (error) return null
+  return inserted.id
+}
+
+async function generateRecapText(input: {
+  team1Score: number
+  team2Score: number
+  team1Name: string
+  team2Name: string
+  mvpName: string | null
+  comments: string[]
+}) {
+  const fallback = `Partita intensa finita ${input.team1Name} ${input.team1Score}-${input.team2Score} ${input.team2Name}. ${input.mvpName ? `MVP: ${input.mvpName}. ` : ''}Commenti del gruppo: ${input.comments.slice(0, 3).join(' | ') || 'nessun commento'}`
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) return { text: fallback, model: 'fallback' }
+
+  try {
+    const { default: OpenAI } = await import('openai')
+    const client = new OpenAI({ apiKey })
+    const resp = await client.responses.create({
+      model: 'gpt-4.1',
+      input: [
+        {
+          role: 'system',
+          content: 'Scrivi in italiano un mini-resoconto calcetto (120-180 parole), tono scherzoso/ironico/perculatore ma non offensivo. Evidenzia MVP, turning point, battute leggere.',
+        },
+        {
+          role: 'user',
+          content: `Risultato: ${input.team1Name} ${input.team1Score} - ${input.team2Score} ${input.team2Name}. MVP: ${input.mvpName ?? 'non assegnato'}. Commenti: ${input.comments.join(' || ') || 'nessun commento'}`,
+        },
+      ],
+    })
+    const text = (resp.output_text ?? '').trim()
+    if (!text) return { text: fallback, model: 'fallback' }
+    return { text, model: 'gpt-4.1' }
+  } catch {
+    return { text: fallback, model: 'fallback' }
+  }
+}
+
 async function recomputeGoalAssistStatsForUsers(
   supabase: Awaited<ReturnType<typeof createClient>>,
   groupId: string,
@@ -366,7 +448,6 @@ export async function upsertMatchPlayerStats(
 export async function submitMatchResult(matchId: string, data: {
   team1_score: number
   team2_score: number
-  mvp_user_id?: string | null
   notes?: string | null
   playerStats?: MatchPlayerStatInput[]
 }): Promise<AsyncResult<MatchResultPayload>> {
@@ -382,7 +463,7 @@ export async function submitMatchResult(matchId: string, data: {
       created_by: user.id,
       team1_score: data.team1_score,
       team2_score: data.team2_score,
-      mvp_user_id: data.mvp_user_id ?? null,
+      mvp_user_id: null,
       notes: data.notes ?? null,
     })
 
@@ -420,7 +501,8 @@ export async function submitMatchResult(matchId: string, data: {
   const team1Ids = new Set<string>(teams?.team1_user_ids ?? [])
   const team2Ids = new Set<string>(teams?.team2_user_ids ?? [])
 
-  const { team1_score: s1, team2_score: s2, mvp_user_id: mvpId } = data
+  const { team1_score: s1, team2_score: s2 } = data
+  const mvpId: string | null = null
   const isDraw = s1 === s2
 
   function getOutcome(userId: string): 'win' | 'draw' | 'loss' | 'participation' {
@@ -524,6 +606,16 @@ export async function submitMatchResult(matchId: string, data: {
   const leveledUp = newLevel > oldLevel
   const { current: levelEntry } = getLevelInfo(myProfile?.xp ?? 0)
 
+  if (groupId) {
+    await ensureMvpPollForMatch(
+      supabase,
+      matchId,
+      groupId,
+      user.id,
+      registrations.map((r) => r.user_id),
+    )
+  }
+
   if ((data.playerStats ?? []).length > 0 && groupId) {
     const statsPayload = (data.playerStats ?? []).map((s) => ({
       match_id: matchId,
@@ -583,6 +675,241 @@ export async function openMatch(matchId: string): Promise<AsyncResult<true>> {
   if (error) return { data: null, error: error.message }
   revalidatePath(`/matches/${matchId}`)
   return { data: true, error: null }
+}
+
+export async function submitMvpVote(matchId: string, votedUserId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const [{ data: myReg }, { data: poll }] = await Promise.all([
+    supabase
+      .from('match_registrations')
+      .select('status')
+      .eq('match_id', matchId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('polls')
+      .select('id, options, closes_at, kind')
+      .eq('match_id', matchId)
+      .eq('kind', 'mvp')
+      .maybeSingle(),
+  ])
+
+  if (!myReg || myReg.status !== 'confirmed') return { data: null, error: 'Solo i partecipanti possono votare MVP' }
+  if (!poll) return { data: null, error: 'Votazione MVP non disponibile' }
+  if (poll.closes_at && new Date(poll.closes_at).getTime() <= Date.now()) {
+    return { data: null, error: 'Votazione MVP chiusa' }
+  }
+
+  const optionIndex = poll.options.findIndex((o) => o === votedUserId)
+  if (optionIndex < 0) return { data: null, error: 'Giocatore non valido per il voto MVP' }
+
+  const { data: existing } = await supabase
+    .from('poll_votes')
+    .select('id')
+    .eq('poll_id', poll.id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (existing?.id) return { data: null, error: 'Hai già votato MVP' }
+
+  const { error } = await supabase
+    .from('poll_votes')
+    .insert({
+      poll_id: poll.id,
+      user_id: user.id,
+      option_index: optionIndex,
+    })
+
+  if (error) return { data: null, error: error.message }
+  await awardProfileXP(user.id, XP_FOR_MVP_VOTE)
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  return { data: true, error: null }
+}
+
+export async function submitMatchComment(matchId: string, comment: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const cleanComment = comment.trim()
+  if (cleanComment.length < MIN_MATCH_COMMENT_CHARS) {
+    return { data: null, error: `Commento troppo corto (min ${MIN_MATCH_COMMENT_CHARS} caratteri)` }
+  }
+
+  const { data: matchData, error: matchErr } = await supabase
+    .from('matches')
+    .select('group_id')
+    .eq('id', matchId)
+    .single()
+  if (matchErr || !matchData) return { data: null, error: 'Partita non trovata' }
+
+  const [{ data: member }, { data: myReg }, { data: existingComment }] = await Promise.all([
+    supabase
+      .from('group_members')
+      .select('role')
+      .eq('group_id', matchData.group_id)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle(),
+    supabase
+      .from('match_registrations')
+      .select('status')
+      .eq('match_id', matchId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('match_comments')
+      .select('id')
+      .eq('match_id', matchId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+  ])
+
+  const isAdmin = member?.role === 'admin'
+  const isPlayer = myReg?.status === 'confirmed'
+  if (!isAdmin && !isPlayer) return { data: null, error: 'Solo partecipanti o admin possono commentare' }
+
+  const { error } = await supabase
+    .from('match_comments')
+    .upsert(
+      {
+        match_id: matchId,
+        user_id: user.id,
+        comment: cleanComment,
+      },
+      { onConflict: 'match_id,user_id', ignoreDuplicates: false },
+    )
+
+  if (error) return { data: null, error: error.message }
+  if (!existingComment?.id) {
+    await awardProfileXP(user.id, XP_FOR_MATCH_COMMENT)
+  }
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  return { data: true, error: null }
+}
+
+export async function finalizePostMatchWindow(matchId: string): Promise<AsyncResult<{
+  mvpUserId: string | null
+  recapGenerated: boolean
+}>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: matchData, error: matchErr } = await supabase
+    .from('matches')
+    .select('id, group_id')
+    .eq('id', matchId)
+    .single()
+  if (matchErr || !matchData) return { data: null, error: 'Partita non trovata' }
+
+  const { data: member } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', matchData.group_id)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (!member) return { data: null, error: 'Non autorizzato' }
+
+  let admin: Awaited<ReturnType<typeof createAdminClient>>
+  try {
+    admin = await createAdminClient()
+  } catch {
+    return { data: null, error: 'Config admin mancante (SUPABASE_SERVICE_ROLE_KEY)' }
+  }
+  const [{ data: result }, { data: poll }, { data: recapExisting }, { data: group }] = await Promise.all([
+    admin.from('match_results').select('mvp_user_id, team1_score, team2_score').eq('match_id', matchId).maybeSingle(),
+    admin.from('polls').select('id, options, closes_at').eq('match_id', matchId).eq('kind', 'mvp').maybeSingle(),
+    admin.from('match_recaps').select('id').eq('match_id', matchId).maybeSingle(),
+    admin.from('groups').select('team1_name, team2_name').eq('id', matchData.group_id).single(),
+  ])
+
+  if (!poll || !poll.closes_at) return { data: null, error: 'Poll MVP non trovato' }
+  if (new Date(poll.closes_at).getTime() > Date.now()) {
+    return { data: null, error: 'Finestra 24h non ancora conclusa' }
+  }
+
+  let mvpUserId: string | null = result?.mvp_user_id ?? null
+
+  if (!mvpUserId) {
+    const { data: votes } = await admin
+      .from('poll_votes')
+      .select('option_index')
+      .eq('poll_id', poll.id)
+
+    const counts = new Map<number, number>()
+    for (const v of votes ?? []) counts.set(v.option_index, (counts.get(v.option_index) ?? 0) + 1)
+    if (counts.size > 0) {
+      const sorted = Array.from(counts.entries()).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1]
+        return a[0] - b[0]
+      })
+      const winnerIndex = sorted[0][0]
+      const winnerId = poll.options[winnerIndex] ?? null
+      if (winnerId) {
+        mvpUserId = winnerId
+        await admin.from('match_results').update({ mvp_user_id: winnerId }).eq('match_id', matchId)
+        // MVP bonus applied once when poll closes.
+        await awardProfileXP(winnerId, 30)
+        const { data: currentStats } = await admin
+          .from('player_stats')
+          .select('mvp_count')
+          .eq('user_id', winnerId)
+          .eq('group_id', matchData.group_id)
+          .maybeSingle()
+        await admin
+          .from('player_stats')
+          .upsert(
+            {
+              user_id: winnerId,
+              group_id: matchData.group_id,
+              mvp_count: (currentStats?.mvp_count ?? 0) + 1,
+            },
+            { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+          )
+      }
+    }
+  }
+
+  let recapGenerated = false
+  if (!recapExisting?.id) {
+    const [{ data: comments }, { data: users }] = await Promise.all([
+      admin.from('match_comments').select('comment').eq('match_id', matchId),
+      admin
+        .from('profiles')
+        .select('id, username, full_name')
+        .in('id', [mvpUserId].filter(Boolean) as string[]),
+    ])
+    const mvpName = users?.[0] ? (users[0].full_name ?? users[0].username) : null
+    const recap = await generateRecapText({
+      team1Score: result?.team1_score ?? 0,
+      team2Score: result?.team2_score ?? 0,
+      team1Name: group?.team1_name ?? 'Squadra A',
+      team2Name: group?.team2_name ?? 'Squadra B',
+      mvpName,
+      comments: (comments ?? []).map((c) => c.comment),
+    })
+
+    const { error: recapErr } = await admin
+      .from('match_recaps')
+      .insert({
+        match_id: matchId,
+        summary_text: recap.text,
+        model: recap.model,
+        created_by: user.id,
+      })
+    if (!recapErr) recapGenerated = true
+  }
+
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  revalidatePath('/rankings')
+  return { data: { mvpUserId, recapGenerated }, error: null }
 }
 
 // ─── Ratings ─────────────────────────────────────────────────────────────

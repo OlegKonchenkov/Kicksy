@@ -74,7 +74,6 @@ export default function MatchResultPage() {
   const [statsByUser, setStatsByUser] = useState<Record<string, StatRow>>({})
   const [score1, setScore1] = useState(0)
   const [score2, setScore2] = useState(0)
-  const [mvpUserId, setMvpUserId] = useState<string>('')
   const [notes, setNotes] = useState('')
 
   const [levelUpData, setLevelUpData] = useState<{
@@ -114,7 +113,7 @@ export default function MatchResultPage() {
           .eq('match_id', matchId),
         supabase
           .from('match_results')
-          .select('team1_score, team2_score, notes, mvp_user_id')
+          .select('team1_score, team2_score, notes')
           .eq('match_id', matchId)
           .maybeSingle(),
       ])
@@ -145,7 +144,6 @@ export default function MatchResultPage() {
         setScore1(existingResult.team1_score)
         setScore2(existingResult.team2_score)
         setNotes(existingResult.notes ?? '')
-        setMvpUserId(existingResult.mvp_user_id ?? '')
       }
 
       setPlayers(allowedRows)
@@ -181,7 +179,6 @@ export default function MatchResultPage() {
         const result = await submitMatchResult(matchId, {
           team1_score: score1,
           team2_score: score2,
-          mvp_user_id: mvpUserId || null,
           notes: notes.trim() || null,
           playerStats: statPayload,
         })
@@ -248,7 +245,7 @@ export default function MatchResultPage() {
             {isAdmin ? 'Risultato & Statistiche' : 'Le Tue Statistiche'}
           </h1>
           <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            {isAdmin ? 'Inserisci score, MVP e numeri finali' : 'Aggiungi i tuoi goal e assist'}
+            {isAdmin ? 'Inserisci score e numeri finali. MVP sarà deciso dal voto in 24h.' : 'Aggiungi i tuoi goal e assist'}
           </p>
         </div>
 
@@ -265,33 +262,6 @@ export default function MatchResultPage() {
                   <span style={{ color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>VS</span>
                   <Stepper value={score2} onChange={setScore2} />
                 </div>
-              </div>
-
-              <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-                <label htmlFor="mvp" style={{ display: 'block', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.78rem', marginBottom: '0.5rem' }}>
-                  MVP (opzionale)
-                </label>
-                <select
-                  id="mvp"
-                  value={mvpUserId}
-                  onChange={(e) => setMvpUserId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--color-elevated)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-1)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '0.7rem 0.8rem',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  <option value="">Nessun MVP</option>
-                  {players.map((p) => (
-                    <option key={p.user_id} value={p.user_id}>
-                      {p.full_name ?? p.username}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <Input
@@ -343,4 +313,3 @@ export default function MatchResultPage() {
     </>
   )
 }
-
