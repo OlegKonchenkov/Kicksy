@@ -278,3 +278,46 @@ export async function setGroupPollTemplateEnabled(
   revalidatePath(`/groups/${groupId}/settings`)
   return { data: true, error: null }
 }
+
+export async function createGroup(input: {
+  name: string
+  description?: string | null
+}): Promise<AsyncResult<{ id: string }>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: group, error: groupErr } = await supabase
+    .from('groups')
+    .insert({ name: input.name.trim(), description: input.description?.trim() || null, created_by: user.id })
+    .select('id')
+    .single()
+
+  if (groupErr || !group) return { data: null, error: groupErr?.message ?? 'Errore creazione gruppo' }
+
+  const newGroupId = group.id
+
+  await supabase
+    .from('group_members')
+    .insert({ group_id: newGroupId, user_id: user.id, role: 'admin' })
+
+  // Award group_founder badge
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const admin = await createAdminClient()
+    const { data: founderBadge } = await admin
+      .from('badges')
+      .select('id')
+      .eq('key', 'group_founder')
+      .maybeSingle()
+    if (founderBadge) {
+      await admin.from('player_badges').upsert(
+        { user_id: user.id, badge_id: founderBadge.id, group_id: newGroupId, equipped: false },
+        { onConflict: 'user_id,badge_id,group_id', ignoreDuplicates: true }
+      )
+    }
+  } catch { /* non-critical */ }
+
+  revalidatePath('/groups')
+  return { data: { id: newGroupId }, error: null }
+}

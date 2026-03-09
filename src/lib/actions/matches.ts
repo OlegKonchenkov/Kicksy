@@ -673,6 +673,29 @@ export async function submitMatchResult(matchId: string, data: {
 
   await Promise.allSettled(profileUpdates)
 
+  // Award badges for all confirmed players after stats update
+  if (groupId) {
+    try {
+      const adminForBadges = await createAdminClient()
+      const confirmedIds = registrations.map((r) => r.user_id)
+      await Promise.all(
+        confirmedIds.map(async (uid) => {
+          const { data: freshStats } = await adminForBadges
+            .from('player_stats')
+            .select('matches_played, matches_won, goals_scored, assists, mvp_count, clean_sheets')
+            .eq('user_id', uid)
+            .eq('group_id', groupId)
+            .maybeSingle()
+          if (freshStats) {
+            await awardBadgesIfEarned(adminForBadges, uid, groupId, freshStats)
+          }
+        })
+      )
+    } catch {
+      // Non-critical
+    }
+  }
+
   // 6. Get caller's XP before + after for level-up detection
   const myXPBefore = (() => {
     // We saved nothing before — use a secondary query
@@ -940,6 +963,91 @@ export async function submitMatchComment(matchId: string, comment: string): Prom
   return { data: true, error: null }
 }
 
+// ============================================================
+// BADGE AWARDING HELPER
+// ============================================================
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, stats: {
+  matches_played?: number
+  matches_won?: number
+  goals_scored?: number
+  assists?: number
+  mvp_count?: number
+  clean_sheets?: number
+}): Promise<void> {
+  try {
+    const conditionTypes: string[] = []
+    if (stats.matches_played !== undefined) conditionTypes.push('matches_played')
+    if (stats.matches_won !== undefined) conditionTypes.push('matches_won')
+    if (stats.goals_scored !== undefined) conditionTypes.push('goals_scored')
+    if (stats.assists !== undefined) conditionTypes.push('assists')
+    if (stats.mvp_count !== undefined) conditionTypes.push('mvp_count')
+    if (stats.clean_sheets !== undefined) conditionTypes.push('clean_sheets')
+
+    if (conditionTypes.length === 0) return
+
+    // Fetch all matching badges
+    const { data: allBadges } = await admin
+      .from('badges')
+      .select('id, condition_type, condition_value')
+      .in('condition_type', conditionTypes)
+
+    if (!allBadges || allBadges.length === 0) return
+
+    // Determine which badges this player qualifies for
+    const qualifiedBadgeIds: string[] = []
+    for (const badge of allBadges) {
+      const statValue: number = stats[badge.condition_type as keyof typeof stats] ?? 0
+      if (statValue >= badge.condition_value) {
+        qualifiedBadgeIds.push(badge.id)
+      }
+    }
+    if (qualifiedBadgeIds.length === 0) return
+
+    // Check already-earned to avoid duplicates
+    const { data: existing } = await admin
+      .from('player_badges')
+      .select('badge_id')
+      .eq('user_id', userId)
+      .in('badge_id', qualifiedBadgeIds)
+
+    const alreadyEarned = new Set((existing ?? []).map((b: { badge_id: string }) => b.badge_id))
+    const newBadgeIds = qualifiedBadgeIds.filter((id) => !alreadyEarned.has(id))
+    if (newBadgeIds.length === 0) return
+
+    // Insert new badges
+    await admin.from('player_badges').upsert(
+      newBadgeIds.map((badgeId) => ({
+        user_id: userId,
+        badge_id: badgeId,
+        group_id: groupId,
+        equipped: false,
+      })),
+      { onConflict: 'user_id,badge_id,group_id', ignoreDuplicates: true }
+    )
+
+    // Send notification for each new badge
+    const { data: badgeDetails } = await admin
+      .from('badges')
+      .select('id, name_it, icon')
+      .in('id', newBadgeIds)
+
+    if (badgeDetails && badgeDetails.length > 0) {
+      await admin.from('notifications').insert(
+        badgeDetails.map((b: { id: string; name_it: string; icon: string }) => ({
+          user_id: userId,
+          type: 'badge_earned',
+          title: `${b.icon} Badge sbloccato!`,
+          body: b.name_it,
+          is_read: false,
+        }))
+      )
+    }
+  } catch {
+    // Badge awarding is non-critical
+  }
+}
+
 export async function finalizePostMatchWindow(matchId: string): Promise<AsyncResult<{
   mvpUserId: string | null
   recapGenerated: boolean
@@ -1020,6 +1128,16 @@ export async function finalizePostMatchWindow(matchId: string): Promise<AsyncRes
             },
             { onConflict: 'user_id,group_id', ignoreDuplicates: false },
           )
+        // Award MVP milestone badges
+        const { data: mvpUpdatedStats } = await admin
+          .from('player_stats')
+          .select('matches_played, matches_won, goals_scored, assists, mvp_count, clean_sheets')
+          .eq('user_id', winnerId)
+          .eq('group_id', matchData.group_id)
+          .maybeSingle()
+        if (mvpUpdatedStats) {
+          await awardBadgesIfEarned(admin, winnerId, matchData.group_id, mvpUpdatedStats)
+        }
       }
     }
   }

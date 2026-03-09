@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createGroup } from '@/lib/actions/groups'
 import { Button } from '@/components/ui'
 import { Input } from '@/components/ui'
 
@@ -23,23 +23,9 @@ export default function NewGroupPage() {
     }
 
     startTransition(async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-
-      const { data: group, error: groupErr } = await supabase
-        .from('groups')
-        .insert({ name: name.trim(), description: description.trim() || null, created_by: user.id })
-        .select('id')
-        .single()
-
-      if (groupErr) { setError(groupErr.message); return }
-
-      await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id, role: 'admin' })
-
-      router.replace(`/groups/${group.id}`)
+      const result = await createGroup({ name: name.trim(), description: description.trim() || null })
+      if (result.error) { setError(result.error); return }
+      router.replace(`/groups/${result.data!.id}`)
     })
   }
 
