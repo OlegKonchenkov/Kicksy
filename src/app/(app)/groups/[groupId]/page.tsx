@@ -47,6 +47,28 @@ export default async function GroupDetailPage({ params }: PageProps) {
     .eq('group_id', groupId)
     .eq('is_active', true)
 
+  const [membersForRatingsRes, myGroupRatingsRes] = await Promise.all([
+    supabase
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', groupId)
+      .eq('is_active', true)
+      .neq('user_id', user.id),
+    supabase
+      .from('player_ratings')
+      .select('ratee_id')
+      .eq('group_id', groupId)
+      .eq('rater_id', user.id)
+      .is('match_id', null),
+  ])
+
+  const membersToRate = new Set((membersForRatingsRes.data ?? []).map((m) => m.user_id))
+  const alreadyRated = new Set((myGroupRatingsRes.data ?? []).map((r) => r.ratee_id))
+  let pendingRatingsCount = 0
+  for (const memberId of membersToRate) {
+    if (!alreadyRated.has(memberId)) pendingRatingsCount += 1
+  }
+
   // Get my registrations for upcoming matches
   const upcomingIds = matches
     .filter(m => m.status === 'open' || m.status === 'draft')
@@ -127,6 +149,24 @@ export default async function GroupDetailPage({ params }: PageProps) {
         <Link href={`/groups/${groupId}/ratings`} style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.9rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', textDecoration: 'none', minHeight: 64 }}>
           <Star size={18} color="var(--color-text-2)" />
           <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>Valuta membri</span>
+          {pendingRatingsCount > 0 && (
+            <span
+              style={{
+                marginLeft: '0.25rem',
+                padding: '0.18rem 0.5rem',
+                borderRadius: 999,
+                background: 'rgba(200,255,107,0.16)',
+                border: '1px solid rgba(200,255,107,0.45)',
+                color: 'var(--color-primary)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+            >
+              {pendingRatingsCount}
+            </span>
+          )}
         </Link>
       </div>
 

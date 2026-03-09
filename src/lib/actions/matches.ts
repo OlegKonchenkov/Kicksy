@@ -445,6 +445,30 @@ type SkillRatings = {
   leadership: number; comunicazione: number; mentalita_competitiva: number; fair_play: number
 }
 
+const XP_PER_PEER_RATING = 12
+
+async function awardProfileXP(userId: string, xpGain: number) {
+  if (xpGain <= 0) return
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rpcRes = await (supabase as any).rpc('increment_profile_xp', { p_user_id: userId, p_xp: xpGain })
+  if (!rpcRes.error) return
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('xp')
+    .eq('id', userId)
+    .single()
+
+  const newXP = (profile?.xp ?? 0) + xpGain
+  const newLevel = getLevelNumber(newXP)
+  await supabase
+    .from('profiles')
+    .update({ xp: newXP, level: newLevel })
+    .eq('id', userId)
+}
+
 export async function submitRatings(
   matchId: string,
   groupId: string,
@@ -453,6 +477,18 @@ export async function submitRatings(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
+
+  const rateeIds = ratings.map((r) => r.rateeId)
+  const { data: existing } = await supabase
+    .from('player_ratings')
+    .select('ratee_id')
+    .eq('rater_id', user.id)
+    .eq('group_id', groupId)
+    .eq('match_id', matchId)
+    .in('ratee_id', rateeIds)
+
+  const existingRateeIds = new Set((existing ?? []).map((r) => r.ratee_id))
+  const newlyRatedCount = rateeIds.filter((id) => !existingRateeIds.has(id)).length
 
   const inserts = ratings.map(r => ({
     rater_id: user.id,
@@ -467,7 +503,9 @@ export async function submitRatings(
     .upsert(inserts, { onConflict: 'rater_id,ratee_id,match_id', ignoreDuplicates: false })
 
   if (error) return { data: null, error: error.message }
+  await awardProfileXP(user.id, newlyRatedCount * XP_PER_PEER_RATING)
   revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
   return { data: true, error: null }
 }
 
@@ -478,6 +516,18 @@ export async function submitGroupRatings(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
+
+  const rateeIds = ratings.map((r) => r.rateeId)
+  const { data: existing } = await supabase
+    .from('player_ratings')
+    .select('ratee_id')
+    .eq('rater_id', user.id)
+    .eq('group_id', groupId)
+    .is('match_id', null)
+    .in('ratee_id', rateeIds)
+
+  const existingRateeIds = new Set((existing ?? []).map((r) => r.ratee_id))
+  const newlyRatedCount = rateeIds.filter((id) => !existingRateeIds.has(id)).length
 
   const inserts = ratings.map(r => ({
     rater_id: user.id,
@@ -492,7 +542,9 @@ export async function submitGroupRatings(
     .upsert(inserts, { onConflict: 'rater_id,ratee_id,group_id,match_id', ignoreDuplicates: false })
 
   if (error) return { data: null, error: error.message }
+  await awardProfileXP(user.id, newlyRatedCount * XP_PER_PEER_RATING)
   revalidatePath(`/groups/${groupId}/ratings`)
   revalidatePath(`/groups/${groupId}`)
+  revalidatePath('/profile')
   return { data: true, error: null }
 }
