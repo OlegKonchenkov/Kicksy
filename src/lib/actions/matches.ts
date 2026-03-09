@@ -148,6 +148,7 @@ export async function updateMatch(matchId: string, updates: {
   description?: string | null
   max_players?: number
   min_players?: number
+  team_size?: number
   status?: Match['status']
   registration_deadline?: string | null
 }): Promise<AsyncResult<true>> {
@@ -159,6 +160,28 @@ export async function updateMatch(matchId: string, updates: {
     .eq('id', matchId)
 
   if (error) return { data: null, error: error.message }
+  revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+export async function deleteMatch(matchId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+
+  const { data: matchData, error: matchErr } = await supabase
+    .from('matches')
+    .select('group_id')
+    .eq('id', matchId)
+    .single()
+
+  if (matchErr) return { data: null, error: 'Partita non trovata' }
+
+  const { error } = await supabase
+    .from('matches')
+    .delete()
+    .eq('id', matchId)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/groups/${matchData.group_id}/matches`)
   revalidatePath(`/matches/${matchId}`)
   return { data: true, error: null }
 }

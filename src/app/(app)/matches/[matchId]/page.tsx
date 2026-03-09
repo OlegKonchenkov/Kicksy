@@ -192,21 +192,29 @@ export default function MatchDetailPage() {
           {/* Admin controls */}
           {isAdmin && (
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Link href={`/matches/${matchId}/edit`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
+                Modifica
+              </Link>
               {isOpen && (
                 <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await lockMatch(matchId); window.location.reload() })} loading={isPending}>
-                  🔒 Chiudi iscrizioni
+                  Chiudi iscrizioni
+                </Button>
+              )}
+              {match.status === 'draft' && (
+                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); window.location.reload() })} loading={isPending}>
+                  Apri iscrizioni
                 </Button>
               )}
               {isLocked && (
                 <>
                   <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); window.location.reload() })} loading={isPending}>
-                    🔓 Riapri
+                    Riapri
                   </Button>
                   <Link href={`/matches/${matchId}/teams`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
-                    ⚡ Genera Squadre
+                    Genera Squadre
                   </Link>
                   <Link href={`/matches/${matchId}/result`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
-                    📊 Inserisci Risultato
+                    Inserisci Risultato
                   </Link>
                 </>
               )}
@@ -248,3 +256,6 @@ export default function MatchDetailPage() {
     </div>
   )
 }
+
+
+
