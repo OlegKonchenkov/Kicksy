@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/ui";
 
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-display",
@@ -67,7 +68,7 @@ export default function RootLayout({
       className={`${barlowCondensed.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased">
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

@@ -156,6 +156,29 @@ export default function MatchDetailPage() {
               🌟 MVP: {registrations.find(r => r.user_id === result.mvp_user_id)?.profile.username ?? 'N/A'}
             </div>
           )}
+          {myRegistration?.status === 'confirmed' && (
+            <div style={{ marginTop: '1rem' }}>
+              <Link
+                href={`/matches/${matchId}/rate`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '0.5rem 0.875rem',
+                  background: 'var(--color-primary)',
+                  color: 'var(--color-bg)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-display)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  textDecoration: 'none',
+                }}
+              >
+                Valuta compagni
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -256,6 +279,7 @@ export default function MatchDetailPage() {
     </div>
   )
 }
+
 
 
 

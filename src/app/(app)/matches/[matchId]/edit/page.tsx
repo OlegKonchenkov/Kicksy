@@ -6,6 +6,7 @@ import { Button, Input } from '@/components/ui'
 import { createClient } from '@/lib/supabase/client'
 import { deleteMatch, updateMatch } from '@/lib/actions/matches'
 import type { MatchStatus } from '@/types'
+import { useToast } from '@/components/ui'
 
 type MatchFormat = '5v5' | '8v8' | '11v11' | 'custom'
 
@@ -37,6 +38,7 @@ export default function MatchEditPage() {
   const params = useParams()
   const matchId = params.matchId as string
   const [isPending, startTransition] = useTransition()
+  const { showToast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,6 +127,7 @@ export default function MatchEditPage() {
         status,
       })
       if (res.error) { setError(res.error); return }
+      showToast('Partita aggiornata', 'success')
       router.replace(`/matches/${matchId}`)
     })
   }
@@ -135,6 +138,7 @@ export default function MatchEditPage() {
     startTransition(async () => {
       const res = await deleteMatch(matchId)
       if (res.error) { setError(res.error); return }
+      showToast('Partita eliminata', 'success')
       router.replace(groupId ? `/groups/${groupId}/matches` : '/groups')
     })
   }
