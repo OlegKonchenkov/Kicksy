@@ -315,6 +315,14 @@ export async function createGroup(input: {
         { user_id: user.id, badge_id: founderBadge.id, group_id: newGroupId, equipped: false },
         { onConflict: 'user_id,badge_id,group_id', ignoreDuplicates: true }
       )
+      // Send notification
+      await admin.from('notifications').insert({
+        user_id: user.id,
+        type: 'badge_earned',
+        title: '🏗️ Badge sbloccato!',
+        body: 'Fondatore',
+        is_read: false,
+      })
     }
   } catch { /* non-critical */ }
 

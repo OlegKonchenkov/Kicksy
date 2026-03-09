@@ -1009,6 +1009,7 @@ async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, 
       .from('player_badges')
       .select('badge_id')
       .eq('user_id', userId)
+      .eq('group_id', groupId)
       .in('badge_id', qualifiedBadgeIds)
 
     const alreadyEarned = new Set((existing ?? []).map((b: { badge_id: string }) => b.badge_id))
