@@ -11,7 +11,7 @@ const roleLabels: Record<string, string> = {
   D: 'Difensore',
   C: 'Centrocampista',
   E: 'Esterno',
-  W: 'Ala',
+  W: 'Trequartista',
   A: 'Attaccante',
 }
 
