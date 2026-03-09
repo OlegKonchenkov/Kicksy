@@ -180,8 +180,12 @@ export default async function GroupRankingsPage({ params }: PageProps) {
             const isMe = r.user_id === user.id
             const medal = medals[idx]
             return (
-              <div
+              <Link
                 key={r.user_id}
+                href={`/groups/${groupId}/players/${r.user_id}`}
+                style={{ textDecoration: 'none', display: 'block' }}
+              >
+              <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '2rem 1fr 3rem 3rem 3rem 3rem',
@@ -224,6 +228,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
                   {r.points}
                 </div>
               </div>
+              </Link>
             )
           })}
         </div>
