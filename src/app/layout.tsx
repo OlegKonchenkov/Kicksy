@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui";
+import { PWARegister } from "@/components/pwa/PWARegister";
 
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-display",
@@ -40,6 +41,9 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  icons: {
+    apple: [{ url: "/icons/icon-192.png" }],
+  },
   openGraph: {
     title: "Kicksy",
     description: "Organizza le tue partite, bilancia le squadre, scala la classifica.",
@@ -68,6 +72,7 @@ export default function RootLayout({
       className={`${barlowCondensed.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased">
+        <PWARegister />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
