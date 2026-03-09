@@ -470,3 +470,29 @@ export async function submitRatings(
   revalidatePath(`/matches/${matchId}`)
   return { data: true, error: null }
 }
+
+export async function submitGroupRatings(
+  groupId: string,
+  ratings: Array<{ rateeId: string; skills: SkillRatings }>
+): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const inserts = ratings.map(r => ({
+    rater_id: user.id,
+    ratee_id: r.rateeId,
+    group_id: groupId,
+    match_id: null,
+    ...r.skills,
+  }))
+
+  const { error } = await supabase
+    .from('player_ratings')
+    .upsert(inserts, { onConflict: 'rater_id,ratee_id,group_id,match_id', ignoreDuplicates: false })
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/groups/${groupId}/ratings`)
+  revalidatePath(`/groups/${groupId}`)
+  return { data: true, error: null }
+}

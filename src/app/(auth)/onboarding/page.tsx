@@ -144,7 +144,7 @@ export default function OnboardingPage() {
 
       if (memberErr) { setGroupError(memberErr.message); return }
 
-      router.replace(`/groups/${group.id}`)
+      router.replace(`/groups/${group.id}/ratings?first=1`)
     })
   }
 
@@ -175,7 +175,7 @@ export default function OnboardingPage() {
         return
       }
 
-      router.replace(`/groups/${joinedGroupId}`)
+      router.replace(`/groups/${joinedGroupId}/ratings?first=1`)
     })
   }
 
