@@ -65,6 +65,8 @@ export interface TeamBalanceResult {
   algorithmVersion: string
 }
 
+type NeverTogetherPair = readonly [string, string]
+
 // ─── Role-specific skill weights (normalized, sum = 100 per role) ─────────────
 
 type RoleWeights = Record<keyof SkillSet, number>
@@ -168,6 +170,21 @@ function balanceScore(diff: number, totalStrength: number): number {
   return Math.max(0, Math.round((1 - normalized * 2) * 100))
 }
 
+function countNeverTogetherViolations(
+  team1: string[],
+  team2: string[],
+  pairs: NeverTogetherPair[],
+): number {
+  if (pairs.length === 0) return 0
+  const t1 = new Set(team1)
+  const t2 = new Set(team2)
+  let violations = 0
+  for (const [a, b] of pairs) {
+    if ((t1.has(a) && t1.has(b)) || (t2.has(a) && t2.has(b))) violations++
+  }
+  return violations
+}
+
 // ─── Main balancer ────────────────────────────────────────────────────────────
 
 export function generateBalancedTeams(
@@ -176,12 +193,14 @@ export function generateBalancedTeams(
     maxIterations?: number
     initialTemperature?: number
     coolingRate?: number
+    neverTogetherPairs?: NeverTogetherPair[]
   } = {}
 ): TeamBalanceResult {
   const {
     maxIterations = 1500,
     initialTemperature = 5.0,
     coolingRate = 0.995,
+    neverTogetherPairs = [],
   } = options
 
   if (players.length < 2) {
@@ -197,6 +216,8 @@ export function generateBalancedTeams(
 
   const n = players.length
   const half = Math.floor(n / 2)
+  const validIds = new Set(players.map((p) => p.id))
+  const constraints = neverTogetherPairs.filter(([a, b]) => a !== b && validIds.has(a) && validIds.has(b))
 
   // 2. Greedy initial assignment (sorted snake draft)
   const sorted = [...players].sort(
@@ -219,6 +240,8 @@ export function generateBalancedTeams(
   let s1 = teamStrength(team1, overalls)
   let s2 = teamStrength(team2, overalls)
   let bestDiff = Math.abs(s1 - s2)
+  let currentViolations = countNeverTogetherViolations(team1, team2, constraints)
+  let bestViolations = currentViolations
   let bestT1 = [...team1]
   let bestT2 = [...team2]
 
@@ -226,7 +249,7 @@ export function generateBalancedTeams(
   let temp = initialTemperature
   let iters = 0
 
-  while (iters < maxIterations && bestDiff > 0.01) {
+  while (iters < maxIterations && (bestDiff > 0.01 || bestViolations > 0)) {
     // Pick a random player from each team and swap
     const i1 = Math.floor(Math.random() * team1.length)
     const i2 = Math.floor(Math.random() * team2.length)
@@ -238,19 +261,27 @@ export function generateBalancedTeams(
     const newS1 = s1 - (overalls.get(id1) ?? 0) + (overalls.get(id2) ?? 0)
     const newS2 = s2 - (overalls.get(id2) ?? 0) + (overalls.get(id1) ?? 0)
     const newDiff = Math.abs(newS1 - newS2)
+    team1[i1] = id2
+    team2[i2] = id1
+    const newViolations = countNeverTogetherViolations(team1, team2, constraints)
+    const prevCost = Math.abs(s1 - s2) + currentViolations * 1000
+    const newCost = newDiff + newViolations * 1000
 
-    const improved = newDiff < Math.abs(s1 - s2)
-    const acceptProb = improved ? 1 : Math.exp(-(newDiff - Math.abs(s1 - s2)) / temp)
+    const improved = newCost < prevCost
+    const acceptProb = improved ? 1 : Math.exp(-(newCost - prevCost) / temp)
 
     if (Math.random() < acceptProb) {
-      team1[i1] = id2
-      team2[i2] = id1
       s1 = newS1
       s2 = newS2
+      currentViolations = newViolations
+    } else {
+      team1[i1] = id1
+      team2[i2] = id2
     }
 
-    if (newDiff < bestDiff) {
+    if (newViolations < bestViolations || (newViolations === bestViolations && newDiff < bestDiff)) {
       bestDiff = newDiff
+      bestViolations = newViolations
       bestT1 = [...team1]
       bestT2 = [...team2]
     }

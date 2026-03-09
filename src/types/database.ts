@@ -94,6 +94,16 @@ export type MatchResult = {
   created_at: string
 }
 
+export type MatchPlayerStats = {
+  id: string
+  match_id: string
+  user_id: string
+  goals: number
+  assists: number
+  created_at: string
+  updated_at: string
+}
+
 export type GeneratedTeam = {
   id: string
   match_id: string
@@ -345,6 +355,21 @@ export type Database = {
           team2_score?: number
           mvp_user_id?: string | null
           notes?: string | null
+        }
+        Relationships: []
+      }
+      match_player_stats: {
+        Row: MatchPlayerStats
+        Insert: {
+          match_id: string
+          user_id: string
+          goals?: number
+          assists?: number
+        }
+        Update: {
+          goals?: number
+          assists?: number
+          updated_at?: string
         }
         Relationships: []
       }

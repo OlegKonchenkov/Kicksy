@@ -1,75 +1,228 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { submitMatchResult } from '@/lib/actions/matches'
-import { Button, Input, LevelUpOverlay } from '@/components/ui'
+import { submitMatchResult, upsertMatchPlayerStats } from '@/lib/actions/matches'
+import { Button, Input, LevelUpOverlay, useToast } from '@/components/ui'
+import { createClient } from '@/lib/supabase/client'
+
+type PlayerRow = {
+  user_id: string
+  username: string
+  full_name: string | null
+}
+
+type StatRow = {
+  goals: number
+  assists: number
+}
+
+function Stepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, value - 1))}
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-elevated)',
+          color: 'var(--color-text-1)',
+          cursor: 'pointer',
+          lineHeight: 1,
+        }}
+      >
+        -
+      </button>
+      <span style={{ minWidth: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', color: 'var(--color-text-1)', fontSize: '0.9rem', fontWeight: 700 }}>
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(value + 1)}
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'var(--color-primary)',
+          color: 'var(--color-bg)',
+          cursor: 'pointer',
+          lineHeight: 1,
+          fontWeight: 700,
+        }}
+      >
+        +
+      </button>
+    </div>
+  )
+}
 
 export default function MatchResultPage() {
   const params = useParams()
   const router = useRouter()
+  const { showToast } = useToast()
   const matchId = params.matchId as string
   const [isPending, startTransition] = useTransition()
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [myUserId, setMyUserId] = useState<string>('')
+  const [players, setPlayers] = useState<PlayerRow[]>([])
+  const [statsByUser, setStatsByUser] = useState<Record<string, StatRow>>({})
   const [score1, setScore1] = useState(0)
   const [score2, setScore2] = useState(0)
+  const [mvpUserId, setMvpUserId] = useState<string>('')
   const [notes, setNotes] = useState('')
 
-  // Level-up overlay state
   const [levelUpData, setLevelUpData] = useState<{
     newLevel: number; levelName: string; xpGained: number
   } | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.replace('/login'); return }
+      setMyUserId(user.id)
+
+      const { data: matchRow, error: matchErr } = await supabase
+        .from('matches')
+        .select('id, group_id')
+        .eq('id', matchId)
+        .single()
+      if (matchErr || !matchRow) { setError('Partita non trovata'); setLoading(false); return }
+
+      const [{ data: member }, { data: regs }, { data: existingStats }, { data: existingResult }] = await Promise.all([
+        supabase
+          .from('group_members')
+          .select('role')
+          .eq('group_id', matchRow.group_id)
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle(),
+        supabase
+          .from('match_registrations')
+          .select('user_id, profiles(username, full_name)')
+          .eq('match_id', matchId)
+          .eq('status', 'confirmed'),
+        supabase
+          .from('match_player_stats')
+          .select('user_id, goals, assists')
+          .eq('match_id', matchId),
+        supabase
+          .from('match_results')
+          .select('team1_score, team2_score, notes, mvp_user_id')
+          .eq('match_id', matchId)
+          .maybeSingle(),
+      ])
+
+      if (!member) { setError('Non autorizzato'); setLoading(false); return }
+      const admin = member.role === 'admin'
+      setIsAdmin(admin)
+
+      const rows = (regs ?? []).map((r) => {
+        const p = r.profiles as unknown as { username: string; full_name: string | null }
+        return { user_id: r.user_id, username: p?.username ?? '', full_name: p?.full_name ?? null }
+      })
+      const allowedRows = admin ? rows : rows.filter((r) => r.user_id === user.id)
+      if (allowedRows.length === 0) {
+        setError('Nessuna statistica modificabile per questa partita')
+        setLoading(false)
+        return
+      }
+
+      const initStats: Record<string, StatRow> = {}
+      for (const p of allowedRows) initStats[p.user_id] = { goals: 0, assists: 0 }
+      for (const s of existingStats ?? []) {
+        if (!initStats[s.user_id]) continue
+        initStats[s.user_id] = { goals: Number(s.goals ?? 0), assists: Number(s.assists ?? 0) }
+      }
+
+      if (existingResult) {
+        setScore1(existingResult.team1_score)
+        setScore2(existingResult.team2_score)
+        setNotes(existingResult.notes ?? '')
+        setMvpUserId(existingResult.mvp_user_id ?? '')
+      }
+
+      setPlayers(allowedRows)
+      setStatsByUser(initStats)
+      setLoading(false)
+    }
+    load()
+  }, [matchId, router])
+
+  const statPayload = useMemo(
+    () => players.map((p) => ({
+      user_id: p.user_id,
+      goals: Math.max(0, statsByUser[p.user_id]?.goals ?? 0),
+      assists: Math.max(0, statsByUser[p.user_id]?.assists ?? 0),
+    })),
+    [players, statsByUser],
+  )
+
+  function setGoals(userId: string, goals: number) {
+    setStatsByUser((prev) => ({ ...prev, [userId]: { ...(prev[userId] ?? { goals: 0, assists: 0 }), goals } }))
+  }
+
+  function setAssists(userId: string, assists: number) {
+    setStatsByUser((prev) => ({ ...prev, [userId]: { ...(prev[userId] ?? { goals: 0, assists: 0 }), assists } }))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
     startTransition(async () => {
-      const result = await submitMatchResult(matchId, {
-        team1_score: score1,
-        team2_score: score2,
-        notes: notes.trim() || null,
-      })
-
-      if (result.error) { setError(result.error); return }
-
-      const payload = result.data!
-      if (payload.leveledUp) {
-        setLevelUpData({
-          newLevel: payload.newLevel,
-          levelName: payload.levelName,
-          xpGained: payload.xpGained,
+      if (isAdmin) {
+        const result = await submitMatchResult(matchId, {
+          team1_score: score1,
+          team2_score: score2,
+          mvp_user_id: mvpUserId || null,
+          notes: notes.trim() || null,
+          playerStats: statPayload,
         })
-      } else {
-        // No level-up: go straight to rating page
-        router.replace(`/matches/${matchId}/rate`)
+        if (result.error) { setError(result.error); return }
+        const payload = result.data!
+        showToast('Risultato e statistiche salvati', 'success')
+        if (payload.leveledUp) {
+          setLevelUpData({
+            newLevel: payload.newLevel,
+            levelName: payload.levelName,
+            xpGained: payload.xpGained,
+          })
+        } else {
+          router.replace(`/matches/${matchId}/rate`)
+        }
+        return
       }
+
+      const mine = statPayload.find((s) => s.user_id === myUserId)
+      if (!mine) { setError('Nessuna statistica da salvare'); return }
+      const result = await upsertMatchPlayerStats(matchId, [mine])
+      if (result.error) { setError(result.error); return }
+      showToast('Le tue statistiche sono state salvate', 'success')
+      router.replace(`/matches/${matchId}`)
     })
   }
 
-  // After closing level-up overlay → go to rating
-  const handleLevelUpClose = () => {
-    setLevelUpData(null)
-    router.replace(`/matches/${matchId}/rate`)
+  if (loading) {
+    return <div style={{ padding: '2rem', color: 'var(--color-text-3)' }}>Caricamento...</div>
   }
 
-  const ScoreBtn = ({ onClick, children, variant = 'default' }: { onClick: () => void; children: React.ReactNode; variant?: 'default' | 'plus' }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: 40, height: 40, borderRadius: '50%',
-        background: variant === 'plus' ? 'var(--color-primary)' : 'var(--color-elevated)',
-        border: variant === 'plus' ? 'none' : '1px solid var(--color-border)',
-        color: variant === 'plus' ? 'var(--color-bg)' : 'var(--color-text-1)',
-        fontSize: '1.375rem', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontWeight: 700, lineHeight: 1,
-      }}
-    >
-      {children}
-    </button>
-  )
+  if (error && players.length === 0) {
+    return (
+      <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ color: 'var(--color-danger)', fontSize: '0.875rem' }}>{error}</p>
+        <button type="button" onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+          ← Indietro
+        </button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -78,97 +231,116 @@ export default function MatchResultPage() {
           newLevel={levelUpData.newLevel}
           levelName={levelUpData.levelName}
           xpGained={levelUpData.xpGained}
-          onClose={handleLevelUpClose}
+          onClose={() => {
+            setLevelUpData(null)
+            router.replace(`/matches/${matchId}/rate`)
+          }}
         />
       )}
 
-      <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <button type="button" onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}>
+          ← Indietro
+        </button>
+
         <div>
-          <button type="button" onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, marginBottom: '1rem', display: 'block' }}>
-            ← Indietro
-          </button>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
-            Inserisci Risultato
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
+            {isAdmin ? 'Risultato & Statistiche' : 'Le Tue Statistiche'}
           </h1>
           <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Registra il punteggio finale della partita
+            {isAdmin ? 'Inserisci score, MVP e numeri finali' : 'Aggiungi i tuoi goal e assist'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-          {/* Score inputs */}
-          <div style={{ padding: '2rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2rem' }}>
-              {/* Team A */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.875rem' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-3)' }}>
-                  Squadra A
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <ScoreBtn onClick={() => setScore1(Math.max(0, score1 - 1))}>−</ScoreBtn>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '3.5rem', fontWeight: 800, color: 'var(--color-text-1)', minWidth: 64, textAlign: 'center', lineHeight: 1 }}>
-                    {score1}
-                  </span>
-                  <ScoreBtn onClick={() => setScore1(score1 + 1)} variant="plus">+</ScoreBtn>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {isAdmin && (
+            <>
+              <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <span style={{ color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.78rem' }}>Punteggio</span>
+                  <span style={{ color: 'var(--color-text-3)', fontSize: '0.72rem' }}>Squadra A vs B</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+                  <Stepper value={score1} onChange={setScore1} />
+                  <span style={{ color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>VS</span>
+                  <Stepper value={score2} onChange={setScore2} />
                 </div>
               </div>
 
-              {/* VS divider */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', paddingTop: '1.5rem' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', color: 'var(--color-text-3)', fontWeight: 700, letterSpacing: '0.08em' }}>VS</span>
-                {score1 !== score2 && (
-                  <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-                    {score1 > score2 ? 'A vince' : 'B vince'}
-                  </span>
-                )}
-                {score1 === score2 && (
-                  <span style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Pareggio
-                  </span>
-                )}
+              <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+                <label htmlFor="mvp" style={{ display: 'block', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.78rem', marginBottom: '0.5rem' }}>
+                  MVP (opzionale)
+                </label>
+                <select
+                  id="mvp"
+                  value={mvpUserId}
+                  onChange={(e) => setMvpUserId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--color-elevated)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-1)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.7rem 0.8rem',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="">Nessun MVP</option>
+                  {players.map((p) => (
+                    <option key={p.user_id} value={p.user_id}>
+                      {p.full_name ?? p.username}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Team B */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.875rem' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-3)' }}>
-                  Squadra B
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <ScoreBtn onClick={() => setScore2(Math.max(0, score2 - 1))}>−</ScoreBtn>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '3.5rem', fontWeight: 800, color: 'var(--color-text-1)', minWidth: 64, textAlign: 'center', lineHeight: 1 }}>
-                    {score2}
-                  </span>
-                  <ScoreBtn onClick={() => setScore2(score2 + 1)} variant="plus">+</ScoreBtn>
-                </div>
-              </div>
+              <Input
+                label="Note (opzionale)"
+                placeholder="es. Partita equilibrata, grande intensità..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={500}
+              />
+            </>
+          )}
+
+          <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+            <div style={{ color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.78rem', marginBottom: '0.75rem' }}>
+              Goal e Assist
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {players.map((p) => {
+                const row = statsByUser[p.user_id] ?? { goals: 0, assists: 0 }
+                return (
+                  <div key={p.user_id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.65rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-elevated)' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: 'var(--color-text-1)', fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.full_name ?? p.username}
+                      </div>
+                      <div style={{ color: 'var(--color-text-3)', fontSize: '0.72rem' }}>@{p.username}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <span style={{ color: 'var(--color-text-3)', fontSize: '0.72rem' }}>Gol</span>
+                      <Stepper value={row.goals} onChange={(v) => setGoals(p.user_id, v)} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <span style={{ color: 'var(--color-text-3)', fontSize: '0.72rem' }}>Assist</span>
+                      <Stepper value={row.assists} onChange={(v) => setAssists(p.user_id, v)} />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
-          {/* Notes */}
-          <Input
-            label="Note (opzionale)"
-            placeholder="es. Partita intensa, bel livello..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            maxLength={500}
-          />
-
-          {error && (
-            <div style={{ padding: '0.75rem 1rem', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', color: 'var(--color-danger)' }}>
-              {error}
-            </div>
-          )}
+          {error && <p style={{ color: 'var(--color-danger)', fontSize: '0.8125rem' }}>{error}</p>}
 
           <Button type="submit" fullWidth loading={isPending} size="lg">
-            Salva Risultato ✓
+            {isAdmin ? 'Salva risultato e stats' : 'Salva le mie stats'}
           </Button>
-
-          <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-3)' }}>
-            Dopo il salvataggio potrai valutare i compagni di squadra
-          </p>
         </form>
       </div>
     </>
   )
 }
+

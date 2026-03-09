@@ -241,11 +241,134 @@ export type MatchResultPayload = {
   oldXP: number
 }
 
+type MatchPlayerStatInput = {
+  user_id: string
+  goals: number
+  assists: number
+}
+
+async function recomputeGoalAssistStatsForUsers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  groupId: string,
+  userIds: string[],
+) {
+  if (userIds.length === 0) return
+
+  const { data: playedMatches } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('status', 'played')
+
+  const playedIds = (playedMatches ?? []).map((m) => m.id)
+  if (playedIds.length === 0) {
+    await Promise.allSettled(
+      userIds.map((uid) =>
+        supabase
+          .from('player_stats')
+          .upsert(
+            { user_id: uid, group_id: groupId, goals_scored: 0, assists: 0 },
+            { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+          ),
+      ),
+    )
+    return
+  }
+
+  const { data: rows } = await supabase
+    .from('match_player_stats')
+    .select('user_id, goals, assists')
+    .in('user_id', userIds)
+    .in('match_id', playedIds)
+
+  const agg = new Map<string, { goals: number; assists: number }>()
+  for (const uid of userIds) agg.set(uid, { goals: 0, assists: 0 })
+  for (const row of rows ?? []) {
+    const current = agg.get(row.user_id) ?? { goals: 0, assists: 0 }
+    current.goals += Number(row.goals ?? 0)
+    current.assists += Number(row.assists ?? 0)
+    agg.set(row.user_id, current)
+  }
+
+  const updates = Array.from(agg.entries()).map(([uid, v]) =>
+    supabase
+      .from('player_stats')
+      .upsert(
+        {
+          user_id: uid,
+          group_id: groupId,
+          goals_scored: v.goals,
+          assists: v.assists,
+        },
+        { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+      )
+  )
+  await Promise.allSettled(updates)
+}
+
+export async function upsertMatchPlayerStats(
+  matchId: string,
+  stats: MatchPlayerStatInput[],
+): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: matchRow, error: matchErr } = await supabase
+    .from('matches')
+    .select('id, group_id, status')
+    .eq('id', matchId)
+    .single()
+  if (matchErr || !matchRow) return { data: null, error: 'Partita non trovata' }
+
+  const { data: memberRow } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', matchRow.group_id)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!memberRow) return { data: null, error: 'Non autorizzato' }
+
+  const isAdmin = memberRow.role === 'admin'
+  if (!isAdmin) {
+    if (stats.length !== 1 || stats[0].user_id !== user.id) {
+      return { data: null, error: 'Puoi modificare solo le tue statistiche' }
+    }
+  }
+
+  const payload = stats.map((s) => ({
+    match_id: matchId,
+    user_id: s.user_id,
+    goals: Math.max(0, Math.floor(Number(s.goals || 0))),
+    assists: Math.max(0, Math.floor(Number(s.assists || 0))),
+  }))
+
+  const { error } = await supabase
+    .from('match_player_stats')
+    .upsert(payload, { onConflict: 'match_id,user_id', ignoreDuplicates: false })
+  if (error) return { data: null, error: error.message }
+
+  await recomputeGoalAssistStatsForUsers(
+    supabase,
+    matchRow.group_id,
+    Array.from(new Set(payload.map((p) => p.user_id))),
+  )
+
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath('/profile')
+  revalidatePath('/rankings')
+  revalidatePath(`/groups/${matchRow.group_id}/rankings`)
+  return { data: true, error: null }
+}
+
 export async function submitMatchResult(matchId: string, data: {
   team1_score: number
   team2_score: number
   mvp_user_id?: string | null
   notes?: string | null
+  playerStats?: MatchPlayerStatInput[]
 }): Promise<AsyncResult<MatchResultPayload>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -254,7 +377,14 @@ export async function submitMatchResult(matchId: string, data: {
   // 1. Insert result
   const { error: resultErr } = await supabase
     .from('match_results')
-    .insert({ match_id: matchId, created_by: user.id, ...data })
+    .insert({
+      match_id: matchId,
+      created_by: user.id,
+      team1_score: data.team1_score,
+      team2_score: data.team2_score,
+      mvp_user_id: data.mvp_user_id ?? null,
+      notes: data.notes ?? null,
+    })
 
   if (resultErr) return { data: null, error: resultErr.message }
 
@@ -393,6 +523,27 @@ export async function submitMatchResult(matchId: string, data: {
   const newLevel = myProfile?.level ?? 1
   const leveledUp = newLevel > oldLevel
   const { current: levelEntry } = getLevelInfo(myProfile?.xp ?? 0)
+
+  if ((data.playerStats ?? []).length > 0 && groupId) {
+    const statsPayload = (data.playerStats ?? []).map((s) => ({
+      match_id: matchId,
+      user_id: s.user_id,
+      goals: Math.max(0, Math.floor(Number(s.goals || 0))),
+      assists: Math.max(0, Math.floor(Number(s.assists || 0))),
+    }))
+
+    const { error: statsErr } = await supabase
+      .from('match_player_stats')
+      .upsert(statsPayload, { onConflict: 'match_id,user_id', ignoreDuplicates: false })
+
+    if (!statsErr) {
+      await recomputeGoalAssistStatsForUsers(
+        supabase,
+        groupId,
+        Array.from(new Set(statsPayload.map((p) => p.user_id))),
+      )
+    }
+  }
 
   revalidatePath(`/matches/${matchId}`)
   revalidatePath('/profile')

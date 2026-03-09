@@ -157,7 +157,10 @@ export default function MatchDetailPage() {
             </div>
           )}
           {myRegistration?.status === 'confirmed' && (
-            <div style={{ marginTop: '1rem' }}>
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link href={`/matches/${matchId}/result`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
+                Le mie stats
+              </Link>
               <Link
                 href={`/matches/${matchId}/rate`}
                 style={{
@@ -242,6 +245,12 @@ export default function MatchDetailPage() {
                 </>
               )}
             </div>
+          )}
+
+          {!isAdmin && isLocked && myRegistration?.status === 'confirmed' && (
+            <Link href={`/matches/${matchId}/result`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.625rem 0.95rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
+              Inserisci le tue stats
+            </Link>
           )}
         </div>
       )}

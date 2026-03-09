@@ -8,6 +8,7 @@ export type {
   Match,
   MatchRegistration,
   MatchResult,
+  MatchPlayerStats,
   GeneratedTeam,
   PlayerStats,
   PlayerRating,

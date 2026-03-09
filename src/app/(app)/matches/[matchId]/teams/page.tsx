@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateBalancedTeams, getPlayerOverall } from '@/lib/team-balancer'
 import type { PlayerInput } from '@/lib/team-balancer'
-import { Avatar, Button, TeamSplit } from '@/components/ui'
-import type { RegistrationStatus } from '@/types'
+import { Button, TeamSplit, useToast } from '@/components/ui'
 
 interface PlayerData {
   id: string
@@ -24,17 +23,57 @@ interface TeamResult {
   balanceScore: number
 }
 
+type NeverTogetherConstraint = { a: string; b: string }
+
 export default function TeamsPage() {
   const params = useParams()
   const router = useRouter()
+  const { showToast } = useToast()
   const matchId = params.matchId as string
   const [isPending, startTransition] = useTransition()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [players, setPlayers] = useState<PlayerData[]>([])
+  const [playerInputs, setPlayerInputs] = useState<PlayerInput[]>([])
   const [teamsResult, setTeamsResult] = useState<TeamResult | null>(null)
   const [confirmed, setConfirmed] = useState(false)
-  const [matchGroupId, setMatchGroupId] = useState<string>('')
+  const [constraints, setConstraints] = useState<NeverTogetherConstraint[]>([])
+  const [selectedA, setSelectedA] = useState('')
+  const [selectedB, setSelectedB] = useState('')
+
+  const playerMap = useMemo(
+    () => Object.fromEntries(players.map((p) => [p.id, p])),
+    [players],
+  )
+
+  function computeAndSetTeams(inputs: PlayerInput[], allPlayers: PlayerData[], c: NeverTogetherConstraint[]) {
+    const result = generateBalancedTeams(inputs, {
+      maxIterations: 1500,
+      neverTogetherPairs: c.map((x) => [x.a, x.b] as const),
+    })
+
+    const overallMap: Record<string, number> = {}
+    for (const pi of inputs) {
+      overallMap[pi.id] = getPlayerOverall(pi)
+    }
+
+    const mapIds = (ids: string[]): PlayerData[] =>
+      ids.map((id) => ({
+        id,
+        username: (allPlayers.find((p) => p.id === id) ?? { username: id }).username,
+        full_name: (allPlayers.find((p) => p.id === id) ?? { full_name: null }).full_name,
+        avatar_url: (allPlayers.find((p) => p.id === id) ?? { avatar_url: null }).avatar_url,
+        overall: overallMap[id] ?? 50,
+      }))
+
+    setTeamsResult({
+      team1: mapIds(result.team1),
+      team2: mapIds(result.team2),
+      team1Strength: result.team1Strength,
+      team2Strength: result.team2Strength,
+      balanceScore: result.balanceScore,
+    })
+  }
 
   useEffect(() => {
     async function load() {
@@ -42,15 +81,12 @@ export default function TeamsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      // Get confirmed players for this match
       const { data: matchData } = await supabase
         .from('matches')
-        .select('group_id')
+        .select('id, group_id')
         .eq('id', matchId)
         .single()
-
       if (!matchData) { setError('Partita non trovata'); setLoading(false); return }
-      setMatchGroupId(matchData.group_id)
 
       const { data: regs } = await supabase
         .from('match_registrations')
@@ -64,37 +100,36 @@ export default function TeamsPage() {
         return
       }
 
-      // Get player ratings for this group
-      const userIds = regs.map(r => r.user_id)
+      const userIds = regs.map((r) => r.user_id)
       const { data: ratings } = await supabase
         .from('player_ratings')
         .select('*')
         .eq('group_id', matchData.group_id)
         .in('ratee_id', userIds)
 
-      // Build PlayerInput objects
-      const playerInputs: PlayerInput[] = regs.map(reg => {
-        const profile = reg.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null }
-        const userRatings = (ratings ?? []).filter(r => r.ratee_id === reg.user_id)
+      const skillKeys = [
+        'velocita', 'resistenza', 'forza', 'salto', 'agilita',
+        'tecnica_palla', 'dribbling', 'passaggio', 'tiro', 'colpo_di_testa',
+        'lettura_gioco', 'posizionamento', 'pressing', 'costruzione',
+        'marcatura', 'tackle', 'intercettamento', 'copertura',
+        'finalizzazione', 'assist_making',
+        'leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play',
+      ] as const
+
+      const inputs: PlayerInput[] = regs.map((reg) => {
+        const profile = reg.profiles as unknown as {
+          username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null
+        }
+        const userRatings = (ratings ?? []).filter((r) => r.ratee_id === reg.user_id)
         const ratingCount = userRatings.length
 
-        // Average skills from all ratings
-        const skillKeys = [
-          'velocita', 'resistenza', 'forza', 'salto', 'agilita',
-          'tecnica_palla', 'dribbling', 'passaggio', 'tiro', 'colpo_di_testa',
-          'lettura_gioco', 'posizionamento', 'pressing', 'costruzione',
-          'marcatura', 'tackle', 'intercettamento', 'copertura',
-          'finalizzazione', 'assist_making',
-          'leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play',
-        ] as const
-
         const avgSkills = Object.fromEntries(
-          skillKeys.map(k => [
+          skillKeys.map((k) => [
             k,
             ratingCount > 0
-              ? userRatings.reduce((sum, r) => sum + (r[k as keyof typeof r] as number ?? 5), 0) / ratingCount
+              ? userRatings.reduce((sum, r) => sum + (Number(r[k as keyof typeof r]) || 5), 0) / ratingCount
               : 5,
-          ])
+          ]),
         ) as unknown as PlayerInput['skills']
 
         return {
@@ -105,67 +140,58 @@ export default function TeamsPage() {
         }
       })
 
-      const result = generateBalancedTeams(playerInputs, { maxIterations: 1500 })
-
-      // Map IDs back to player data
-      const playerMap: Record<string, { username: string; full_name: string | null; avatar_url: string | null }> = {}
-      for (const reg of regs) {
-        const p = reg.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null }
-        playerMap[reg.user_id] = p
-      }
-
-      const overallMap: Record<string, number> = {}
-      for (const pi of playerInputs) {
-        overallMap[pi.id] = getPlayerOverall(pi)
-      }
-
-      const mapIds = (ids: string[]): PlayerData[] =>
-        ids.map(id => ({
-          id,
-          username: playerMap[id]?.username ?? id,
-          full_name: playerMap[id]?.full_name ?? null,
-          avatar_url: playerMap[id]?.avatar_url ?? null,
-          overall: overallMap[id] ?? 50,
-        }))
-
-      setPlayers(regs.map(r => ({
-        id: r.user_id,
-        username: (playerMap[r.user_id] ?? {}).username ?? r.user_id,
-        full_name: (playerMap[r.user_id] ?? {}).full_name ?? null,
-        avatar_url: (playerMap[r.user_id] ?? {}).avatar_url ?? null,
-        overall: overallMap[r.user_id] ?? 50,
-      })))
-
-      setTeamsResult({
-        team1: mapIds(result.team1),
-        team2: mapIds(result.team2),
-        team1Strength: result.team1Strength,
-        team2Strength: result.team2Strength,
-        balanceScore: result.balanceScore,
+      const allPlayers: PlayerData[] = regs.map((r) => {
+        const p = r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null }
+        return {
+          id: r.user_id,
+          username: p?.username ?? r.user_id,
+          full_name: p?.full_name ?? null,
+          avatar_url: p?.avatar_url ?? null,
+          overall: 0,
+        }
       })
+
+      setPlayers(allPlayers)
+      setPlayerInputs(inputs)
+      computeAndSetTeams(inputs, allPlayers, [])
       setLoading(false)
     }
     load()
   }, [matchId, router])
 
-  async function handleRegenerate() {
-    setLoading(true)
-    setError(null)
-    // Re-run algorithm
-    window.location.reload()
+  function handleAddConstraint() {
+    if (!selectedA || !selectedB || selectedA === selectedB) return
+    const exists = constraints.some(
+      (c) => (c.a === selectedA && c.b === selectedB) || (c.a === selectedB && c.b === selectedA),
+    )
+    if (exists) return
+    const next = [...constraints, { a: selectedA, b: selectedB }]
+    setConstraints(next)
+    computeAndSetTeams(playerInputs, players, next)
+  }
+
+  function handleRemoveConstraint(index: number) {
+    const next = constraints.filter((_, i) => i !== index)
+    setConstraints(next)
+    computeAndSetTeams(playerInputs, players, next)
+  }
+
+  function handleRegenerate() {
+    if (playerInputs.length === 0) return
+    computeAndSetTeams(playerInputs, players, constraints)
+    showToast('Squadre rigenerate', 'success')
   }
 
   async function handleConfirm() {
     if (!teamsResult) return
     startTransition(async () => {
       const supabase = createClient()
-
       const { error } = await supabase
         .from('generated_teams')
         .insert({
           match_id: matchId,
-          team1_user_ids: teamsResult.team1.map(p => p.id),
-          team2_user_ids: teamsResult.team2.map(p => p.id),
+          team1_user_ids: teamsResult.team1.map((p) => p.id),
+          team2_user_ids: teamsResult.team2.map((p) => p.id),
           team1_strength: teamsResult.team1Strength,
           team2_strength: teamsResult.team2Strength,
           balance_score: teamsResult.balanceScore,
@@ -173,23 +199,16 @@ export default function TeamsPage() {
         })
 
       if (error) { setError(error.message); return }
-      setConfirmed(true)
 
-      // Update player team assignments
-      for (const p of teamsResult.team1) {
-        await supabase
-          .from('match_registrations')
-          .update({ team_id: 1 })
-          .eq('match_id', matchId)
-          .eq('user_id', p.id)
-      }
-      for (const p of teamsResult.team2) {
-        await supabase
-          .from('match_registrations')
-          .update({ team_id: 2 })
-          .eq('match_id', matchId)
-          .eq('user_id', p.id)
-      }
+      const team1Updates = teamsResult.team1.map((p) =>
+        supabase.from('match_registrations').update({ team_id: 1 }).eq('match_id', matchId).eq('user_id', p.id),
+      )
+      const team2Updates = teamsResult.team2.map((p) =>
+        supabase.from('match_registrations').update({ team_id: 2 }).eq('match_id', matchId).eq('user_id', p.id),
+      )
+      await Promise.all([...team1Updates, ...team2Updates])
+      setConfirmed(true)
+      showToast('Squadre confermate', 'success')
     })
   }
 
@@ -207,7 +226,6 @@ export default function TeamsPage() {
   if (error) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <span style={{ fontSize: '2.5rem' }}>⚠️</span>
         <p style={{ color: 'var(--color-danger)' }}>{error}</p>
         <button onClick={() => router.back()} style={{ color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>← Indietro</button>
       </div>
@@ -217,22 +235,54 @@ export default function TeamsPage() {
   if (!teamsResult) return null
 
   return (
-    <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}>
         ← Partita
       </button>
 
-      {/* Header */}
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>
           Squadre
         </h1>
         <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-          {players.length} giocatori, {teamsResult.team1.length}vs{teamsResult.team2.length}
+          {players.length} giocatori • {teamsResult.team1.length}vs{teamsResult.team2.length}
         </p>
       </div>
 
-      {/* Teams visualization */}
+      <div style={{ padding: '0.9rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Vincolo: non possono stare nella stessa squadra
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.5rem' }}>
+          <select value={selectedA} onChange={(e) => setSelectedA(e.target.value)} style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-1)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.6rem', fontSize: '0.85rem' }}>
+            <option value="">Giocatore A</option>
+            {players.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.username}</option>)}
+          </select>
+          <select value={selectedB} onChange={(e) => setSelectedB(e.target.value)} style={{ background: 'var(--color-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-1)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.6rem', fontSize: '0.85rem' }}>
+            <option value="">Giocatore B</option>
+            {players.map((p) => <option key={p.id} value={p.id}>{p.full_name ?? p.username}</option>)}
+          </select>
+          <button type="button" onClick={handleAddConstraint} style={{ border: '1px solid rgba(200,255,107,.45)', background: 'rgba(200,255,107,.13)', color: 'var(--color-primary)', borderRadius: 'var(--radius-md)', padding: '0.55rem 0.75rem', fontFamily: 'var(--font-display)', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer' }}>
+            Aggiungi
+          </button>
+        </div>
+
+        {constraints.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+            {constraints.map((c, idx) => (
+              <button
+                key={`${c.a}-${c.b}-${idx}`}
+                type="button"
+                onClick={() => handleRemoveConstraint(idx)}
+                style={{ border: '1px solid var(--color-border)', background: 'var(--color-elevated)', color: 'var(--color-text-2)', borderRadius: 999, padding: '0.32rem 0.62rem', fontSize: '0.73rem', cursor: 'pointer' }}
+              >
+                {(playerMap[c.a]?.full_name ?? playerMap[c.a]?.username ?? 'A')} × {(playerMap[c.b]?.full_name ?? playerMap[c.b]?.username ?? 'B')} • rimuovi
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <TeamSplit
         team1={teamsResult.team1}
         team2={teamsResult.team2}
@@ -241,37 +291,20 @@ export default function TeamsPage() {
         balanceScore={teamsResult.balanceScore}
       />
 
-      {/* Algorithm info */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', padding: '0.875rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-primary)' }}>{teamsResult.balanceScore}%</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bilanciamento</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-text-1)' }}>{teamsResult.team1Strength.toFixed(1)}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Forza A</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-text-1)' }}>{teamsResult.team2Strength.toFixed(1)}</div>
-          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Forza B</div>
-        </div>
-      </div>
-
-      {/* Actions */}
       {!confirmed ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {error && <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{error}</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           <Button onClick={handleConfirm} loading={isPending} fullWidth size="lg">
             ✓ Conferma Squadre
           </Button>
           <Button variant="ghost" onClick={handleRegenerate} fullWidth>
-            🔀 Rigenera
+            Rigenera
           </Button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '1.25rem', background: 'rgba(200,255,107,0.08)', border: '1px solid rgba(200,255,107,0.3)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
-          <span style={{ fontSize: '2rem' }}>✅</span>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Squadre confermate!</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Squadre confermate!
+          </span>
           <button onClick={() => router.replace(`/matches/${matchId}`)} style={{ color: 'var(--color-text-3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>
             Torna alla partita →
           </button>
@@ -280,3 +313,4 @@ export default function TeamsPage() {
     </div>
   )
 }
+
