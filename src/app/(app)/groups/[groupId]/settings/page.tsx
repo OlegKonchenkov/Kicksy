@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui'
+import { createClient } from '@/lib/supabase/client'
+import { uploadGroupImage, validateAvatarFile } from '@/lib/avatar-upload'
 import {
   getGroupDetails,
   getGroupPollTemplateSettings,
@@ -53,6 +55,7 @@ export default function GroupSettingsPage() {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [groupAvatarUrl, setGroupAvatarUrl] = useState<string | null>(null)
   const [inviteEnabled, setInviteEnabled] = useState(true)
   const [inviteCode, setInviteCode] = useState('')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -80,6 +83,7 @@ export default function GroupSettingsPage() {
       setGroup(g)
       setName(g.name)
       setDescription(g.description ?? '')
+      setGroupAvatarUrl(g.avatar_url ?? null)
       setInviteEnabled(g.invite_link_enabled)
       setInviteCode(g.invite_code)
 
@@ -103,6 +107,54 @@ export default function GroupSettingsPage() {
       })
       if (res.error) setActionError(res.error)
       else showSuccess('Informazioni aggiornate!')
+    })
+  }
+
+  const handleGroupAvatarUpload = (file: File) => {
+    const validation = validateAvatarFile(file)
+    if (validation) {
+      setActionError(validation)
+      return
+    }
+
+    startTransition(async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setActionError('Sessione scaduta. Rieffettua il login.')
+        return
+      }
+
+      const { url, error } = await uploadGroupImage(supabase, user.id, groupId, file)
+      if (error || !url) {
+        setActionError(error ?? 'Upload immagine fallito')
+        return
+      }
+
+      const saveRes = await updateGroupSettings(groupId, { avatar_url: url })
+      if (saveRes.error) {
+        setActionError(saveRes.error)
+        return
+      }
+
+      setGroupAvatarUrl(url)
+      setGroup((prev) => (prev ? { ...prev, avatar_url: url } : prev))
+      showSuccess('Immagine squadra aggiornata!')
+    })
+  }
+
+  const handleGroupAvatarRemove = () => {
+    startTransition(async () => {
+      const res = await updateGroupSettings(groupId, { avatar_url: null })
+      if (res.error) {
+        setActionError(res.error)
+        return
+      }
+      setGroupAvatarUrl(null)
+      setGroup((prev) => (prev ? { ...prev, avatar_url: null } : prev))
+      showSuccess('Immagine squadra rimossa')
     })
   }
 
@@ -245,6 +297,61 @@ export default function GroupSettingsPage() {
       <section>
         <p style={sectionTitle}>Informazioni Gruppo</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+          <div>
+            <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.625rem' }}>
+              Immagine Squadra
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Avatar src={groupAvatarUrl} name={name || group.name} size="lg" />
+              <label
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-elevated)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-2)',
+                  fontFamily: 'var(--font-display)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Carica
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/avif"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    handleGroupAvatarUpload(file)
+                    e.currentTarget.value = ''
+                  }}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              {groupAvatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleGroupAvatarRemove}
+                  disabled={isPending}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--color-text-3)',
+                    fontSize: '0.75rem',
+                    cursor: isPending ? 'default' : 'pointer',
+                  }}
+                >
+                  Rimuovi
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-3)', marginTop: '0.375rem' }}>
+              JPG, PNG, WEBP o AVIF, massimo 5MB.
+            </p>
+          </div>
+
           <div>
             <label style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.375rem' }}>
               Nome

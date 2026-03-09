@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Avatar, Button, useToast } from '@/components/ui'
 import { createClient } from '@/lib/supabase/client'
 import { submitGroupRatings } from '@/lib/actions/matches'
@@ -13,7 +13,7 @@ const CATEGORIES = [
   { key: 'tattica', label: 'Tattica', emoji: '🧠', color: '#8b5cf6', skills: ['lettura_gioco', 'posizionamento', 'pressing', 'costruzione'] as const },
   { key: 'difesa', label: 'Difesa', emoji: '🛡️', color: '#06b6d4', skills: ['marcatura', 'tackle', 'intercettamento', 'copertura'] as const },
   { key: 'attacco', label: 'Attacco', emoji: '🎯', color: 'var(--color-primary)', skills: ['finalizzazione', 'assist_making'] as const },
-  { key: 'mentalita', label: 'Mentalità', emoji: '🔥', color: '#f59e0b', skills: ['leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play'] as const },
+  { key: 'mentalita', label: 'Mentalita', emoji: '🔥', color: '#f59e0b', skills: ['leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play'] as const },
 ] as const
 
 type SkillKey = typeof CATEGORIES[number]['skills'][number]
@@ -73,8 +73,10 @@ function CategorySlider({ label, emoji, color, value, onChange }: {
 export default function GroupRatingsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { showToast } = useToast()
   const groupId = params.groupId as string
+  const selfOnly = searchParams.get('self') === '1'
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -86,8 +88,13 @@ export default function GroupRatingsPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
 
       const { data: memberRow } = await supabase
         .from('group_members')
@@ -96,7 +103,10 @@ export default function GroupRatingsPage() {
         .eq('user_id', user.id)
         .eq('is_active', true)
         .maybeSingle()
-      if (!memberRow) { router.replace('/groups'); return }
+      if (!memberRow) {
+        router.replace('/groups')
+        return
+      }
 
       const [{ data: members }, { data: existing }] = await Promise.all([
         supabase
@@ -124,7 +134,10 @@ export default function GroupRatingsPage() {
         }
       })
 
-      const ordered = [...mapped.filter((m) => m.self), ...mapped.filter((m) => !m.self)]
+      const ordered = selfOnly
+        ? mapped.filter((m) => m.self)
+        : [...mapped.filter((m) => m.self), ...mapped.filter((m) => !m.self)]
+
       const defaults: Record<string, CategoryRatings> = {}
       for (const t of ordered) defaults[t.user_id] = defaultCats()
       for (const e of existing ?? []) defaults[e.ratee_id] = fromSkills(e as unknown as Record<string, number>)
@@ -133,8 +146,9 @@ export default function GroupRatingsPage() {
       setAllRatings(defaults)
       setLoading(false)
     }
-    load()
-  }, [groupId, router])
+
+    void load()
+  }, [groupId, router, selfOnly])
 
   const current = targets[idx]
   const currentRatings = current ? (allRatings[current.user_id] ?? defaultCats()) : defaultCats()
@@ -158,9 +172,12 @@ export default function GroupRatingsPage() {
         skills: toSkills(allRatings[t.user_id] ?? defaultCats()),
       }))
       const res = await submitGroupRatings(groupId, payload)
-      if (res.error) { setError(res.error); return }
-      showToast('Valutazioni gruppo salvate', 'success')
-      router.replace(`/groups/${groupId}`)
+      if (res.error) {
+        setError(res.error)
+        return
+      }
+      showToast(selfOnly ? 'Autovalutazione salvata' : 'Valutazioni gruppo salvate', 'success')
+      router.replace(selfOnly ? '/profile' : `/groups/${groupId}`)
     })
   }
 
@@ -172,7 +189,9 @@ export default function GroupRatingsPage() {
     return (
       <div style={{ padding: '1.5rem 1rem' }}>
         <p style={{ color: 'var(--color-text-3)', marginBottom: '1rem' }}>Nessun membro da valutare.</p>
-        <Link href={`/groups/${groupId}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>Torna al gruppo →</Link>
+        <Link href={selfOnly ? '/profile' : `/groups/${groupId}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+          {selfOnly ? 'Torna al profilo →' : 'Torna al gruppo →'}
+        </Link>
       </div>
     )
   }
@@ -187,10 +206,10 @@ export default function GroupRatingsPage() {
 
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
-          Valutazioni Gruppo
+          {selfOnly ? 'Autovalutazione' : 'Valutazioni Gruppo'}
         </h1>
         <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-          {current.self ? 'Prima: autovalutazione personale' : 'Valuta un compagno del gruppo'}
+          {selfOnly ? 'Aggiorna i tuoi parametri personali per il bilanciamento squadre.' : (current.self ? 'Prima: autovalutazione personale' : 'Valuta un compagno del gruppo')}
         </p>
       </div>
 
@@ -198,14 +217,20 @@ export default function GroupRatingsPage() {
         <div style={{ flex: 1, height: 4, background: 'var(--color-border)', borderRadius: 999, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${progress}%`, background: 'var(--color-primary)' }} />
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-mono)' }}>{idx + 1}/{targets.length}</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-mono)' }}>
+          {idx + 1}/{targets.length}
+        </span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)' }}>
         <Avatar src={current.avatar_url} name={current.full_name ?? current.username} size="md" />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-1)' }}>{current.full_name ?? current.username}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)' }}>@{current.username}{current.self ? ' · Tu' : ''}</div>
+          <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-1)' }}>
+            {current.full_name ?? current.username}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)' }}>
+            @{current.username}{current.self ? ' · Tu' : ''}
+          </div>
         </div>
       </div>
 

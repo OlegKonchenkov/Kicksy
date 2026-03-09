@@ -134,7 +134,13 @@ export async function getGroupDetails(groupId: string): Promise<AsyncResult<{
 
 export async function updateGroupSettings(
   groupId: string,
-  updates: { name?: string; description?: string | null; invite_link_enabled?: boolean; max_members?: number | null }
+  updates: {
+    name?: string
+    description?: string | null
+    avatar_url?: string | null
+    invite_link_enabled?: boolean
+    max_members?: number | null
+  }
 ): Promise<AsyncResult<true>> {
   const supabase = await createClient()
 

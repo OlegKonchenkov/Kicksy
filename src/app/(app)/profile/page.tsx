@@ -1,8 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Avatar, XPBar, BadgeShelf } from '@/components/ui'
 import type { PlayerBadge, Badge } from '@/types'
 import Link from 'next/link'
+
+type GroupMembership = {
+  group_id: string
+  groups: { id: string; name: string } | null
+}
 
 const ROLE_LABELS: Record<string, { label: string; emoji: string }> = {
   D: { label: 'Difensore', emoji: '🛡️' },
@@ -14,20 +19,20 @@ const ROLE_LABELS: Record<string, { label: string; emoji: string }> = {
 
 export default async function ProfilePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [profileRes, statsRes, badgesRes] = await Promise.all([
+  const [profileRes, statsRes, badgesRes, groupsRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase.from('player_stats').select('*').eq('user_id', user.id),
+    supabase.from('player_badges').select('*, badges(*)').eq('user_id', user.id).order('earned_at', { ascending: false }),
     supabase
-      .from('player_stats')
-      .select('*')
-      .eq('user_id', user.id),
-    supabase
-      .from('player_badges')
-      .select('*, badges(*)')
+      .from('group_members')
+      .select('group_id, groups(id, name)')
       .eq('user_id', user.id)
-      .order('earned_at', { ascending: false }),
+      .eq('is_active', true),
   ])
 
   const profile = profileRes.data
@@ -44,20 +49,22 @@ export default async function ProfilePage() {
       assists: acc.assists + s.assists,
       mvp: acc.mvp + s.mvp_count,
     }),
-    { played: 0, won: 0, drawn: 0, lost: 0, goals: 0, assists: 0, mvp: 0 }
+    { played: 0, won: 0, drawn: 0, lost: 0, goals: 0, assists: 0, mvp: 0 },
   )
 
   const winRate = totals.played > 0 ? Math.round((totals.won / totals.played) * 100) : 0
   const role = profile.preferred_role ? ROLE_LABELS[profile.preferred_role] : null
 
-  const badges = (badgesRes.data ?? []).map(pb => ({
+  const badges = (badgesRes.data ?? []).map((pb) => ({
     ...pb,
     badge: pb.badges as unknown as Badge,
   })) as (PlayerBadge & { badge: Badge })[]
 
+  const groups = ((groupsRes.data ?? []) as unknown as GroupMembership[])
+    .map((row) => ({ id: row.group_id, name: row.groups?.name ?? 'Gruppo' }))
+
   return (
     <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
           Profilo
@@ -67,16 +74,13 @@ export default async function ProfilePage() {
         </Link>
       </div>
 
-      {/* Profile card */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
         <Avatar src={profile.avatar_url} name={profile.full_name ?? profile.username} size="xl" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
             {profile.full_name ?? profile.username}
           </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>
-            @{profile.username}
-          </div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>@{profile.username}</div>
           {role && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.5rem' }}>
               <span style={{ fontSize: '0.875rem' }}>{role.emoji}</span>
@@ -86,12 +90,10 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* XP & Level */}
       <div style={{ padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
         <XPBar xp={profile.xp} compact={false} />
       </div>
 
-      {/* Stats */}
       <div>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
           Statistiche
@@ -102,7 +104,7 @@ export default async function ProfilePage() {
             { label: 'Vinte', value: totals.won, emoji: '🏆' },
             { label: 'Gol', value: totals.goals, emoji: '🎯' },
             { label: 'MVP', value: totals.mvp, emoji: '⭐' },
-          ].map(stat => (
+          ].map((stat) => (
             <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.875rem 0.5rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', gap: '0.25rem' }}>
               <span style={{ fontSize: '1.125rem' }}>{stat.emoji}</span>
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-1)', lineHeight: 1 }}>{stat.value}</span>
@@ -128,7 +130,42 @@ export default async function ProfilePage() {
         )}
       </div>
 
-      {/* Badges */}
+      <div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
+          Autovalutazione
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {groups.length === 0 ? (
+            <div style={{ padding: '0.875rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', color: 'var(--color-text-3)', fontSize: '0.8125rem' }}>
+              Unisciti a un gruppo per impostare l&apos;autovalutazione.
+            </div>
+          ) : (
+            groups.map((g) => (
+              <Link
+                key={g.id}
+                href={`/groups/${g.id}/ratings?self=1`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.875rem 1rem',
+                  background: 'var(--color-surface)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  textDecoration: 'none',
+                  color: 'var(--color-text-1)',
+                }}
+              >
+                <span style={{ fontSize: '0.875rem' }}>{g.name}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                  Modifica
+                </span>
+              </Link>
+            ))
+          )}
+        </div>
+      </div>
+
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)' }}>
@@ -140,10 +177,9 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* Settings */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <Link href="/profile/settings" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', textDecoration: 'none' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-1)' }}>⚙️ Impostazioni</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-1)' }}>Impostazioni</span>
           <span style={{ color: 'var(--color-text-3)' }}>›</span>
         </Link>
       </div>

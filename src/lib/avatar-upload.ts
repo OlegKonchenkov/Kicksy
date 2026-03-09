@@ -53,3 +53,26 @@ export async function uploadAvatarImage(
   const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
   return { url: data.publicUrl, error: null }
 }
+
+export async function uploadGroupImage(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  groupId: string,
+  file: File
+) {
+  const ext = getExtension(file)
+  const path = `${userId}/groups/${groupId}-${Date.now()}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+      cacheControl: '3600',
+    })
+
+  if (uploadError) return { url: null, error: uploadError.message }
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+  return { url: data.publicUrl, error: null }
+}
