@@ -5,6 +5,20 @@ import { useRouter, useParams } from 'next/navigation'
 import { createMatch } from '@/lib/actions/matches'
 import { Button, Input } from '@/components/ui'
 
+type MatchFormat = '5v5' | '8v8' | '11v11' | 'custom'
+
+const FORMAT_PRESETS: Record<Exclude<MatchFormat, 'custom'>, {
+  label: string
+  maxPlayers: number
+  minPlayers: number
+  teamSize: number
+  hint: string
+}> = {
+  '5v5': { label: '5v5', maxPlayers: 10, minPlayers: 6, teamSize: 5, hint: 'Totale 10 giocatori' },
+  '8v8': { label: '8v8', maxPlayers: 16, minPlayers: 14, teamSize: 8, hint: 'Ideale 16, ok anche in 14' },
+  '11v11': { label: '11v11', maxPlayers: 22, minPlayers: 18, teamSize: 11, hint: 'Totale 22 giocatori' },
+}
+
 export default function NewMatchPage() {
   const router = useRouter()
   const params = useParams()
@@ -16,8 +30,23 @@ export default function NewMatchPage() {
   const [date, setDate] = useState('')
   const [time, setTime] = useState('21:00')
   const [location, setLocation] = useState('')
-  const [maxPlayers, setMaxPlayers] = useState(10)
-  const [teamSize, setTeamSize] = useState(5)
+
+  const [format, setFormat] = useState<MatchFormat>('5v5')
+  const [customPlayers, setCustomPlayers] = useState('10')
+
+  function getPlayersConfig() {
+    if (format !== 'custom') return FORMAT_PRESETS[format]
+
+    const parsed = Number.parseInt(customPlayers, 10)
+    const maxPlayers = Number.isFinite(parsed) ? parsed : 0
+    return {
+      label: 'Custom',
+      maxPlayers,
+      minPlayers: Math.max(4, Math.floor(maxPlayers * 0.6)),
+      teamSize: Math.max(2, Math.floor(maxPlayers / 2)),
+      hint: 'Totale personalizzato',
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,6 +55,22 @@ export default function NewMatchPage() {
     if (!title.trim()) { setError('Inserisci un titolo'); return }
     if (!date) { setError('Inserisci la data'); return }
 
+    const cfg = getPlayersConfig()
+    if (format === 'custom') {
+      if (!Number.isFinite(cfg.maxPlayers) || cfg.maxPlayers < 4) {
+        setError('Nel custom inserisci almeno 4 giocatori')
+        return
+      }
+      if (cfg.maxPlayers > 40) {
+        setError('Nel custom il massimo è 40 giocatori')
+        return
+      }
+      if (cfg.maxPlayers % 2 !== 0) {
+        setError('Nel custom inserisci un numero pari di giocatori')
+        return
+      }
+    }
+
     const scheduledAt = new Date(`${date}T${time}`).toISOString()
 
     startTransition(async () => {
@@ -33,16 +78,18 @@ export default function NewMatchPage() {
         title: title.trim(),
         scheduled_at: scheduledAt,
         location: location.trim() || null,
-        max_players: maxPlayers,
-        min_players: Math.floor(maxPlayers * 0.6),
-        team_size: teamSize,
+        max_players: cfg.maxPlayers,
+        min_players: cfg.minPlayers,
+        team_size: cfg.teamSize,
         status: 'open',
-      } as Parameters<typeof createMatch>[1] & { status: 'open' })
+      })
 
       if (result.error) { setError(result.error); return }
       router.replace(`/matches/${result.data!.id}`)
     })
   }
+
+  const currentCfg = getPlayersConfig()
 
   return (
     <div style={{ padding: '1.5rem 1rem' }}>
@@ -93,34 +140,60 @@ export default function NewMatchPage() {
           maxLength={120}
         />
 
-        {/* Player count */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)' }}>
-            Giocatori massimi
+            Formato
           </label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {[6, 8, 10, 12, 14, 16].map(n => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => { setMaxPlayers(n); setTeamSize(Math.floor(n / 2)) }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: `1px solid ${maxPlayers === n ? 'rgba(200,255,107,0.6)' : 'var(--color-border)'}`,
-                  background: maxPlayers === n ? 'rgba(200,255,107,0.12)' : 'var(--color-surface)',
-                  color: maxPlayers === n ? 'var(--color-primary)' : 'var(--color-text-2)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {n}v{n}
-              </button>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            {(['5v5', '8v8', '11v11', 'custom'] as const).map((opt) => {
+              const selected = format === opt
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setFormat(opt)}
+                  style={{
+                    padding: '0.65rem 0.75rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${selected ? 'rgba(200,255,107,0.6)' : 'var(--color-border)'}`,
+                    background: selected ? 'rgba(200,255,107,0.12)' : 'var(--color-surface)',
+                    color: selected ? 'var(--color-primary)' : 'var(--color-text-2)',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {opt}
+                </button>
+              )
+            })}
           </div>
+          {format === 'custom' && (
+            <Input
+              label="Giocatori totali (custom)"
+              type="number"
+              min={4}
+              max={40}
+              step={2}
+              value={customPlayers}
+              onChange={(e) => setCustomPlayers(e.target.value)}
+              required
+            />
+          )}
+          <p style={{ fontSize: '0.75rem', color: 'var(--color-text-3)' }}>
+            {format === 'custom' ? 'Numero totale giocatori (pari).' : FORMAT_PRESETS[format].hint}
+          </p>
+        </div>
+
+        <div style={{ padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--color-text-2)', margin: 0 }}>
+            Capienza: <strong style={{ color: 'var(--color-text-1)' }}>{currentCfg.maxPlayers}</strong> giocatori ·
+            Team size: <strong style={{ color: 'var(--color-text-1)' }}>{currentCfg.teamSize}v{currentCfg.teamSize}</strong>
+          </p>
         </div>
 
         {error && <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{error}</p>}

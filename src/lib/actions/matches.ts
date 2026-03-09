@@ -111,6 +111,7 @@ export async function createMatch(groupId: string, data: {
   max_players?: number
   min_players?: number
   team_size?: number
+  status?: Match['status']
   registration_deadline?: string | null
 }): Promise<AsyncResult<{ id: string }>> {
   const supabase = await createClient()
@@ -128,6 +129,7 @@ export async function createMatch(groupId: string, data: {
       max_players: data.max_players ?? 10,
       min_players: data.min_players ?? 6,
       team_size: data.team_size ?? 5,
+      status: data.status ?? 'open',
       registration_deadline: data.registration_deadline ?? null,
       created_by: user.id,
     })
