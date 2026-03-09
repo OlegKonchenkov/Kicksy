@@ -540,18 +540,18 @@ export default function MatchDetailPage() {
                 Modifica
               </Link>
               {isOpen && (
-                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await lockMatch(matchId); router.refresh() })} loading={isPending}>
+                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { const res = await lockMatch(matchId); if (res?.error) { showToast(res.error, 'error'); return } router.refresh() })} loading={isPending}>
                   Chiudi iscrizioni
                 </Button>
               )}
               {match.status === 'draft' && (
-                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); router.refresh() })} loading={isPending}>
+                <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { const res = await openMatch(matchId); if (res?.error) { showToast(res.error, 'error'); return } router.refresh() })} loading={isPending}>
                   Apri iscrizioni
                 </Button>
               )}
               {isLocked && (
                 <>
-                  <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { await openMatch(matchId); router.refresh() })} loading={isPending}>
+                  <Button variant="secondary" size="sm" onClick={() => startTransition(async () => { const res = await openMatch(matchId); if (res?.error) { showToast(res.error, 'error'); return } router.refresh() })} loading={isPending}>
                     Riapri
                   </Button>
                   <Link href={`/matches/${matchId}/teams`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
