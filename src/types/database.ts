@@ -534,6 +534,7 @@ export type Database = {
     Functions: {
       is_group_member: { Args: { p_group_id: string }; Returns: boolean }
       is_group_admin: { Args: { p_group_id: string }; Returns: boolean }
+      join_group_by_invite_code: { Args: { p_invite_code: string }; Returns: string }
     }
   }
 }

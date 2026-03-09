@@ -163,35 +163,19 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      const { data: group, error: findErr } = await supabase
-        .from('groups')
-        .select('id, invite_link_enabled')
-        .eq('invite_code', code)
-        .single()
+      const { data: joinedGroupId, error: joinErr } = await supabase
+        .rpc('join_group_by_invite_code', { p_invite_code: code })
 
-      if (findErr || !group) {
-        setGroupError('Codice invito non trovato. Controlla e riprova.')
-        return
-      }
-      if (!group.invite_link_enabled) {
-        setGroupError('Questo link/codice invito è stato disabilitato dall\'admin.')
-        return
-      }
-
-      const { error: joinErr } = await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id, role: 'member' })
-
-      if (joinErr) {
-        if (joinErr.code === '23505') {
-          setGroupError('Sei già membro di questo gruppo!')
+      if (joinErr || !joinedGroupId) {
+        if (joinErr?.message.includes('invite_code_not_found')) {
+          setGroupError('Codice invito non trovato o disabilitato. Controlla e riprova.')
         } else {
-          setGroupError(joinErr.message)
+          setGroupError(joinErr?.message ?? 'Impossibile unirsi al gruppo')
         }
         return
       }
 
-      router.replace(`/groups/${group.id}`)
+      router.replace(`/groups/${joinedGroupId}`)
     })
   }
 
@@ -525,3 +509,4 @@ export default function OnboardingPage() {
     </div>
   )
 }
+
