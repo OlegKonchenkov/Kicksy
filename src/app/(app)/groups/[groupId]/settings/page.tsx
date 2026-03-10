@@ -501,6 +501,9 @@ export default function GroupSettingsPage() {
       {/* Members list */}
       <section>
         <p style={sectionTitle}>Membri ({group.members.length})</p>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.75rem', color: 'var(--color-text-3)' }}>
+          Gli admin possono gestire gruppo e partite, ma solo il fondatore puo eliminare il gruppo.
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {group.members.map(m => {
             const isCreator = m.user_id === group.created_by
@@ -518,7 +521,7 @@ export default function GroupSettingsPage() {
                     )}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: m.role === 'admin' ? 'var(--color-primary)' : 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-                    {m.role === 'admin' ? '⭐ Admin' : 'Membro'}
+                    {m.role === 'admin' ? 'Admin' : 'Membro'}
                   </div>
                 </div>
                 {!isCreator && (
@@ -529,7 +532,7 @@ export default function GroupSettingsPage() {
                         disabled={isPending}
                         style={{ padding: '0.375rem 0.625rem', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
                       >
-                        ↑ Admin
+                        Rendi admin
                       </button>
                     )}
                     <button
@@ -567,3 +570,6 @@ export default function GroupSettingsPage() {
     </div>
   )
 }
+
+
+
