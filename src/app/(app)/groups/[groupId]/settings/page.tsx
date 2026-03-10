@@ -13,6 +13,7 @@ import {
   regenerateInviteCode,
   removeMember,
   promoteMember,
+  demoteMember,
   leaveGroup,
   setGroupPollTemplateEnabled,
 } from '@/lib/actions/groups'
@@ -40,6 +41,7 @@ interface GroupData {
   max_members: number | null
   created_by: string
   myRole: 'admin' | 'member'
+  isFounder: boolean
   members: Member[]
 }
 
@@ -204,6 +206,20 @@ export default function GroupSettingsPage() {
           members: prev.members.map(m => m.user_id === userId ? { ...m, role: 'admin' as const } : m),
         } : prev)
         showSuccess('Membro promosso admin!')
+      }
+    })
+  }
+
+  const handleDemoteMember = (userId: string) => {
+    startTransition(async () => {
+      const res = await demoteMember(groupId, userId)
+      if (res.error) setActionError(res.error)
+      else {
+        setGroup(prev => prev ? {
+          ...prev,
+          members: prev.members.map(m => m.user_id === userId ? { ...m, role: 'member' as const } : m),
+        } : prev)
+        showSuccess('Permessi admin revocati')
       }
     })
   }
@@ -508,6 +524,7 @@ export default function GroupSettingsPage() {
           {group.members.map(m => {
             const isCreator = m.user_id === group.created_by
             const displayName = m.profile.full_name ?? m.profile.username
+            const canRemoveMember = m.role === 'member' || group.isFounder
             return (
               <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                 <Avatar src={m.profile.avatar_url} name={displayName} size="sm" />
@@ -535,13 +552,24 @@ export default function GroupSettingsPage() {
                         Rendi admin
                       </button>
                     )}
-                    <button
-                      onClick={() => handleRemoveMember(m.user_id)}
-                      disabled={isPending}
-                      style={{ padding: '0.375rem 0.625rem', background: 'transparent', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', color: 'var(--color-danger)', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
-                    >
-                      Rimuovi
-                    </button>
+                    {m.role === 'admin' && group.isFounder && (
+                      <button
+                        onClick={() => handleDemoteMember(m.user_id)}
+                        disabled={isPending}
+                        style={{ padding: '0.375rem 0.625rem', background: 'transparent', border: '1px solid #f59e0b', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', color: '#f59e0b', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                      >
+                        Revoca admin
+                      </button>
+                    )}
+                    {canRemoveMember && (
+                      <button
+                        onClick={() => handleRemoveMember(m.user_id)}
+                        disabled={isPending}
+                        style={{ padding: '0.375rem 0.625rem', background: 'transparent', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', color: 'var(--color-danger)', cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                      >
+                        Rimuovi
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

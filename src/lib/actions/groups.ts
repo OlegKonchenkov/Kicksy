@@ -68,6 +68,7 @@ export async function getGroupDetails(groupId: string): Promise<AsyncResult<{
   max_members: number | null
   created_by: string
   myRole: 'admin' | 'member'
+  isFounder: boolean
   members: Array<{
     user_id: string
     role: 'admin' | 'member'
@@ -126,6 +127,7 @@ export async function getGroupDetails(groupId: string): Promise<AsyncResult<{
       max_members: group.max_members,
       created_by: group.created_by,
       myRole: myMemberRes.data.role as 'admin' | 'member',
+      isFounder: group.created_by === user.id,
       members,
     },
     error: null,
@@ -193,6 +195,33 @@ export async function promoteMember(groupId: string, userId: string): Promise<As
     .update({ role: 'admin' })
     .eq('group_id', groupId)
     .eq('user_id', userId)
+
+  if (error) return { data: null, error: error.message }
+  revalidatePath(`/groups/${groupId}`)
+  return { data: true, error: null }
+}
+
+export async function demoteMember(groupId: string, userId: string): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: groupRow, error: groupErr } = await supabase
+    .from('groups')
+    .select('created_by')
+    .eq('id', groupId)
+    .single()
+
+  if (groupErr || !groupRow) return { data: null, error: 'Gruppo non trovato' }
+  if (groupRow.created_by !== user.id) return { data: null, error: 'Solo il fondatore puo revocare admin' }
+  if (userId === groupRow.created_by) return { data: null, error: 'Il fondatore non puo essere declassato' }
+
+  const { error } = await supabase
+    .from('group_members')
+    .update({ role: 'member' })
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .eq('is_active', true)
 
   if (error) return { data: null, error: error.message }
   revalidatePath(`/groups/${groupId}`)
