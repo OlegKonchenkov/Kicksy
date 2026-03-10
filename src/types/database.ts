@@ -167,6 +167,7 @@ export type PlayerRating = {
   comunicazione: number
   mentalita_competitiva: number
   fair_play: number
+  comment: string | null
   created_at: string
 }
 
