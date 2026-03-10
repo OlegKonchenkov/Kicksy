@@ -110,7 +110,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
           width: 'fit-content',
         }}
       >
-        ? I miei gruppi
+        ← I miei gruppi
       </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -388,7 +388,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
                 fontWeight: 700,
               }}
             >
-              Vedi tutte ?
+              Vedi tutte →
             </Link>
           </div>
         </div>
@@ -414,7 +414,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
                 href={`/groups/${groupId}/matches/new`}
                 style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 700 }}
               >
-                Crea la prima partita ?
+                Crea la prima partita →
               </Link>
             )}
           </div>
@@ -442,4 +442,3 @@ export default async function GroupDetailPage({ params }: PageProps) {
     </div>
   )
 }
-
