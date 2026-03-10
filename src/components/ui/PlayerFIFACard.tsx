@@ -55,6 +55,8 @@ export function PlayerFIFACard({
   const cardBorder = tier
     ? `1px solid ${tier.color}30`
     : `1px solid ${isMe ? 'rgba(200,255,107,0.25)' : 'var(--color-border)'}`
+  const role1 = player.preferred_role
+  const role2 = player.preferred_role_2
 
   return (
     <div style={{
@@ -105,7 +107,7 @@ export function PlayerFIFACard({
               fontWeight: 700,
               color: 'var(--color-primary)',
             }}>Lv.{player.level}</span>
-            {player.preferred_role && (
+            {role1 && (
               <span style={{
                 padding: '0.125rem 0.4rem',
                 background: 'var(--color-elevated)',
@@ -117,7 +119,21 @@ export function PlayerFIFACard({
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 color: 'var(--color-text-2)',
-              }}>{ROLE_LABELS[player.preferred_role] ?? player.preferred_role}</span>
+              }}>{ROLE_LABELS[role1] ?? role1}</span>
+            )}
+            {role2 && role2 !== role1 && (
+              <span style={{
+                padding: '0.125rem 0.4rem',
+                background: 'rgba(245,158,11,0.12)',
+                border: '1px solid #f59e0b',
+                borderRadius: 999,
+                fontFamily: 'var(--font-display)',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: '#f59e0b',
+              }}>{`${ROLE_LABELS[role2] ?? role2} (2)`}</span>
             )}
             {isAdmin && (
               <span style={{
