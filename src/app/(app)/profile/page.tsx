@@ -1,6 +1,6 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Avatar, XPBar, BadgeShelf } from '@/components/ui'
+import { Avatar, XPBar, BadgeShelf, RadarChart } from '@/components/ui'
 import type { PlayerBadge, Badge } from '@/types'
 import Link from 'next/link'
 
@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [profileRes, statsRes, badgesRes, groupsRes] = await Promise.all([
+  const [profileRes, statsRes, badgesRes, groupsRes, ratingsRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('player_stats').select('*').eq('user_id', user.id),
     supabase.from('player_badges').select('*, badges(*)').eq('user_id', user.id).order('earned_at', { ascending: false }),
@@ -33,6 +33,10 @@ export default async function ProfilePage() {
       .select('group_id, groups(id, name)')
       .eq('user_id', user.id)
       .eq('is_active', true),
+    supabase
+      .from('player_ratings')
+      .select('velocita,resistenza,forza,salto,agilita,tecnica_palla,dribbling,passaggio,tiro,colpo_di_testa,lettura_gioco,posizionamento,pressing,costruzione,marcatura,tackle,intercettamento,copertura,finalizzazione,assist_making,leadership,comunicazione,mentalita_competitiva,fair_play')
+      .eq('ratee_id', user.id),
   ])
 
   const profile = profileRes.data
@@ -53,6 +57,39 @@ export default async function ProfilePage() {
   )
 
   const winRate = totals.played > 0 ? Math.round((totals.won / totals.played) * 100) : 0
+
+  const ratingRows = (ratingsRes.data ?? []) as Record<string, number | null>[]
+  const hasProfileRatings = ratingRows.length > 0
+
+  const profileCategoryColors: Record<string, string> = {
+    'Fisica': '#FF6B6B', 'Tecnica': '#FFD93D', 'Tattica': '#6BCB77',
+    'Difesa': '#4D96FF', 'Attacco': 'var(--color-primary)', 'Mentalità': '#C77DFF',
+  }
+
+  const profileSkillCategories = [
+    { name: 'Fisica', fields: ['velocita', 'resistenza', 'forza', 'salto', 'agilita'] },
+    { name: 'Tecnica', fields: ['tecnica_palla', 'dribbling', 'passaggio', 'tiro', 'colpo_di_testa'] },
+    { name: 'Tattica', fields: ['lettura_gioco', 'posizionamento', 'pressing', 'costruzione'] },
+    { name: 'Difesa', fields: ['marcatura', 'tackle', 'intercettamento', 'copertura'] },
+    { name: 'Attacco', fields: ['finalizzazione', 'assist_making'] },
+    { name: 'Mentalità', fields: ['leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play'] },
+  ]
+
+  function computeProfileAvg(rows: Record<string, number | null>[], fields: string[]): number {
+    let sum = 0; let count = 0
+    for (const row of rows) {
+      for (const f of fields) {
+        const v = row[f]; if (v != null) { sum += v; count++ }
+      }
+    }
+    return count === 0 ? 0 : Math.round((sum / count) * 10) / 10
+  }
+
+  const profileSkillAverages = profileSkillCategories.map(cat => ({
+    name: cat.name,
+    avg: computeProfileAvg(ratingRows, cat.fields),
+  }))
+
   const role = profile.preferred_role ? ROLE_LABELS[profile.preferred_role] : null
 
   const badges = (badgesRes.data ?? []).map((pb) => ({
@@ -165,6 +202,36 @@ export default async function ProfilePage() {
           )}
         </div>
       </div>
+
+      {hasProfileRatings && (
+        <div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-3)',
+            marginBottom: '0.875rem',
+          }}>
+            Profilo Skill (media compagni)
+          </h2>
+          <div style={{
+            padding: '1.25rem',
+            background: 'var(--color-surface)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            justifyContent: 'center',
+          }}>
+            <RadarChart
+              data={Object.fromEntries(profileSkillAverages.map(s => [s.name, s.avg]))}
+              colors={profileCategoryColors}
+              size={220}
+            />
+          </div>
+        </div>
+      )}
 
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
