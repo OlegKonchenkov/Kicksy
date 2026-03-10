@@ -72,7 +72,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const isMe = user.id === userId
 
   // Parallel fetch all data
-  const [profileRes, groupRes, statsRes, badgesRes, ratingsRes] = await Promise.all([
+  const [profileRes, groupRes, statsRes, badgesRes, ratingsRes, commentsRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('username, full_name, avatar_url, xp, level, bio, preferred_role, preferred_role_2')
@@ -100,6 +100,14 @@ export default async function GroupPlayerPage({ params }: PageProps) {
       .select('velocita, resistenza, forza, salto, agilita, tecnica_palla, dribbling, passaggio, tiro, colpo_di_testa, lettura_gioco, posizionamento, pressing, costruzione, marcatura, tackle, intercettamento, copertura, finalizzazione, assist_making, leadership, comunicazione, mentalita_competitiva, fair_play')
       .eq('group_id', groupId)
       .eq('ratee_id', userId),
+    supabase
+      .from('player_ratings')
+      .select('comment, rater_id, created_at')
+      .eq('group_id', groupId)
+      .eq('ratee_id', userId)
+      .not('comment', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   if (profileRes.error) notFound()
@@ -110,6 +118,23 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const stats = statsRes.data
   const badgeRows = badgesRes.data ?? []
   const ratingRows = (ratingsRes.data ?? []) as Record<string, number | null>[]
+
+  // Comments
+  const rawComments = (commentsRes.data ?? []) as { comment: string | null; rater_id: string; created_at: string }[]
+  const raterIds = rawComments.map(c => c.rater_id)
+  const { data: raterProfiles } = raterIds.length > 0
+    ? await supabase.from('profiles').select('id, username, avatar_url').in('id', raterIds)
+    : { data: [] as { id: string; username: string; avatar_url: string | null }[] }
+  const raterMap = Object.fromEntries((raterProfiles ?? []).map(p => [p.id, p]))
+  const comments = rawComments
+    .filter(c => c.comment)
+    .map(c => ({
+      text: c.comment as string,
+      raterId: c.rater_id,
+      raterUsername: raterMap[c.rater_id]?.username ?? 'Anonimo',
+      raterAvatar: raterMap[c.rater_id]?.avatar_url ?? null,
+      createdAt: c.created_at,
+    }))
 
   // Skill category averages
   const skillCategories = [
@@ -138,6 +163,15 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const hasRatings = ratingRows.length > 0
   const hasBadges = badgeRows.length > 0
   const isEmpty = !hasStats && !hasRatings && !hasBadges
+
+  function relativeTime(iso: string) {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+    if (days === 0) return 'oggi'
+    if (days === 1) return 'ieri'
+    if (days < 7) return `${days}g fa`
+    if (days < 30) return `${Math.floor(days / 7)}sett fa`
+    return `${Math.floor(days / 30)}mesi fa`
+  }
 
   // Badge tier colors
   const tierColor = (tier: string | null | undefined) => {
@@ -511,6 +545,50 @@ export default async function GroupPlayerPage({ params }: PageProps) {
               colors={categoryColors}
               size={220}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Comments */}
+      {comments.length > 0 && (
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
+            💬 Dicono di {isMe ? 'te' : 'lui'} ({comments.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {comments.slice(0, 3).map((c, i) => (
+              <div key={i} style={{ padding: '0.875rem 1rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                  <Avatar src={c.raterAvatar} name={c.raterUsername} size="xs" />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>@{c.raterUsername}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', marginLeft: 'auto' }}>{relativeTime(c.createdAt)}</span>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-2)', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                  &ldquo;{c.text}&rdquo;
+                </p>
+              </div>
+            ))}
+            {comments.length > 3 && (
+              <details>
+                <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, padding: '0.25rem 0' }}>
+                  Vedi tutti ({comments.length - 3} altri)
+                </summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {comments.slice(3).map((c, i) => (
+                    <div key={i} style={{ padding: '0.875rem 1rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                        <Avatar src={c.raterAvatar} name={c.raterUsername} size="xs" />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>@{c.raterUsername}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', marginLeft: 'auto' }}>{relativeTime(c.createdAt)}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-2)', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                        &ldquo;{c.text}&rdquo;
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       )}

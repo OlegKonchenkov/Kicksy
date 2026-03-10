@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [profileRes, statsRes, badgesRes, groupsRes, ratingsRes] = await Promise.all([
+  const [profileRes, statsRes, badgesRes, groupsRes, ratingsRes, commentsRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('player_stats').select('*').eq('user_id', user.id),
     supabase.from('player_badges').select('*, badges(*)').eq('user_id', user.id).order('earned_at', { ascending: false }),
@@ -37,6 +37,13 @@ export default async function ProfilePage() {
       .from('player_ratings')
       .select('velocita,resistenza,forza,salto,agilita,tecnica_palla,dribbling,passaggio,tiro,colpo_di_testa,lettura_gioco,posizionamento,pressing,costruzione,marcatura,tackle,intercettamento,copertura,finalizzazione,assist_making,leadership,comunicazione,mentalita_competitiva,fair_play')
       .eq('ratee_id', user.id),
+    supabase
+      .from('player_ratings')
+      .select('comment, rater_id, created_at')
+      .eq('ratee_id', user.id)
+      .not('comment', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   const profile = profileRes.data
@@ -89,6 +96,31 @@ export default async function ProfilePage() {
     name: cat.name,
     avg: computeProfileAvg(ratingRows, cat.fields),
   }))
+
+  // Comments
+  function relativeTimeProfile(iso: string) {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+    if (days === 0) return 'oggi'
+    if (days === 1) return 'ieri'
+    if (days < 7) return `${days}g fa`
+    if (days < 30) return `${Math.floor(days / 7)}sett fa`
+    return `${Math.floor(days / 30)}mesi fa`
+  }
+  const rawProfileComments = (commentsRes.data ?? []) as { comment: string | null; rater_id: string; created_at: string }[]
+  const profileRaterIds = rawProfileComments.map(c => c.rater_id)
+  const { data: profileRaterProfiles } = profileRaterIds.length > 0
+    ? await supabase.from('profiles').select('id, username, avatar_url').in('id', profileRaterIds)
+    : { data: [] as { id: string; username: string; avatar_url: string | null }[] }
+  const profileRaterMap = Object.fromEntries((profileRaterProfiles ?? []).map(p => [p.id, p]))
+  const profileComments = rawProfileComments
+    .filter(c => c.comment)
+    .map(c => ({
+      text: c.comment as string,
+      raterId: c.rater_id,
+      raterUsername: profileRaterMap[c.rater_id]?.username ?? 'Anonimo',
+      raterAvatar: profileRaterMap[c.rater_id]?.avatar_url ?? null,
+      createdAt: c.created_at,
+    }))
 
   const role = profile.preferred_role ? ROLE_LABELS[profile.preferred_role] : null
   const role2 = profile.preferred_role_2 ? ROLE_LABELS[profile.preferred_role_2] : null
@@ -240,6 +272,49 @@ export default async function ProfilePage() {
               colors={profileCategoryColors}
               size={220}
             />
+          </div>
+        </div>
+      )}
+
+      {profileComments.length > 0 && (
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
+            💬 Dicono di me ({profileComments.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {profileComments.slice(0, 3).map((c, i) => (
+              <div key={i} style={{ padding: '0.875rem 1rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                  <Avatar src={c.raterAvatar} name={c.raterUsername} size="xs" />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>@{c.raterUsername}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', marginLeft: 'auto' }}>{relativeTimeProfile(c.createdAt)}</span>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-2)', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                  &ldquo;{c.text}&rdquo;
+                </p>
+              </div>
+            ))}
+            {profileComments.length > 3 && (
+              <details>
+                <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, padding: '0.25rem 0' }}>
+                  Vedi tutti ({profileComments.length - 3} altri)
+                </summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {profileComments.slice(3).map((c, i) => (
+                    <div key={i} style={{ padding: '0.875rem 1rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                        <Avatar src={c.raterAvatar} name={c.raterUsername} size="xs" />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', fontWeight: 700 }}>@{c.raterUsername}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--color-text-3)', marginLeft: 'auto' }}>{relativeTimeProfile(c.createdAt)}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-2)', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                        &ldquo;{c.text}&rdquo;
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         </div>
       )}
