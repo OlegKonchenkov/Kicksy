@@ -49,6 +49,7 @@ export interface SkillSet {
 export interface PlayerInput {
   id: string
   role: PlayerRole
+  role2?: PlayerRole  // optional secondary preferred role
   skills: SkillSet
   /** Number of peer ratings received — used for Bayesian smoothing */
   ratingCount: number

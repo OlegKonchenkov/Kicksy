@@ -28,6 +28,7 @@ export type Profile = {
   avatar_url: string | null
   bio: string | null
   preferred_role: PlayerRole | null
+  preferred_role_2: PlayerRole | null
   xp: number
   level: number
   created_at: string
@@ -270,6 +271,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           preferred_role?: PlayerRole | null
+          preferred_role_2?: PlayerRole | null
           xp?: number
           level?: number
         }
@@ -279,6 +281,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           preferred_role?: PlayerRole | null
+          preferred_role_2?: PlayerRole | null
           xp?: number
           level?: number
           updated_at?: string
