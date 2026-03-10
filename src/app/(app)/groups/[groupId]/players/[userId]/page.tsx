@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Avatar } from '@/components/ui'
+import { Avatar, RadarChart } from '@/components/ui'
 
 interface PageProps {
   params: Promise<{ groupId: string; userId: string }>
@@ -460,6 +460,37 @@ export default async function GroupPlayerPage({ params }: PageProps) {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Radar chart */}
+      {hasRatings && skillAverages.some(s => s.avg > 0) && (
+        <div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-3)',
+            marginBottom: '0.875rem',
+          }}>
+            Profilo Skill
+          </h2>
+          <div style={{
+            padding: '1.25rem',
+            background: 'var(--color-surface)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            justifyContent: 'center',
+          }}>
+            <RadarChart
+              data={Object.fromEntries(skillAverages.map(s => [s.name, s.avg]))}
+              colors={categoryColors}
+              size={220}
+            />
           </div>
         </div>
       )}
