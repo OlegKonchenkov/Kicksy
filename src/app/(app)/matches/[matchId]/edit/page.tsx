@@ -174,6 +174,16 @@ export default function MatchEditPage() {
           <Input label="Orario" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
         </div>
         <Input label="Luogo" value={location} onChange={(e) => setLocation(e.target.value)} />
+              {location.trim() && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none' }}
+                >
+                  📍 Verifica su Maps →
+                </a>
+              )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)' }}>

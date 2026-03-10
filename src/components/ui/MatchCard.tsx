@@ -104,9 +104,21 @@ export function MatchCard({ match, registration, confirmedCount = 0, onClick }: 
           🕐 {formatTime(match.scheduled_at)}
         </span>
         {match.location && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--color-text-2)' }}>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(match.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              fontSize: '0.8125rem',
+              color: 'var(--color-primary)',
+              textDecoration: 'none',
+            }}
+          >
             📍 {match.location}
-          </span>
+          </a>
         )}
       </div>
 
