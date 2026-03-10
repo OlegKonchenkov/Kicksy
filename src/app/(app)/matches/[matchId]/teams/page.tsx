@@ -64,13 +64,17 @@ export default function TeamsPage() {
     }
 
     const mapIds = (ids: string[]): PlayerData[] =>
-      ids.map((id) => ({
-        id,
-        username: (allPlayers.find((p) => p.id === id) ?? { username: id }).username,
-        full_name: (allPlayers.find((p) => p.id === id) ?? { full_name: null }).full_name,
-        avatar_url: (allPlayers.find((p) => p.id === id) ?? { avatar_url: null }).avatar_url,
-        overall: overallMap[id] ?? 50,
-      }))
+      ids.map((id) => {
+        const found = allPlayers.find((p) => p.id === id)
+        return {
+          id,
+          username: found?.username ?? id,
+          full_name: found?.full_name ?? null,
+          avatar_url: found?.avatar_url ?? null,
+          overall: overallMap[id] ?? 50,
+          role: found?.role,
+        }
+      })
 
     setTeamsResult({
       team1: mapIds(result.team1),
