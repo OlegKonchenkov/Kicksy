@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateBalancedTeams, getPlayerOverall } from '@/lib/team-balancer'
 import type { PlayerInput } from '@/lib/team-balancer'
-import { Button, TeamSplit, useToast } from '@/components/ui'
+import { Button, TeamSplit, PitchFormation, useToast } from '@/components/ui'
 
 interface PlayerData {
   id: string
@@ -13,6 +13,7 @@ interface PlayerData {
   full_name: string | null
   avatar_url: string | null
   overall: number
+  role?: string
 }
 
 interface TeamResult {
@@ -43,6 +44,8 @@ export default function TeamsPage() {
   const [groupId, setGroupId] = useState('')
   const [team1Name, setTeam1Name] = useState('Squadra A')
   const [team2Name, setTeam2Name] = useState('Squadra B')
+  const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const playerMap = useMemo(
     () => Object.fromEntries(players.map((p) => [p.id, p])),
@@ -102,6 +105,15 @@ export default function TeamsPage() {
         setTeam2Name(groupData.team2_name ?? 'Squadra B')
       }
 
+      const { data: adminCheck } = await supabase
+        .from('group_members')
+        .select('role')
+        .eq('group_id', matchData.group_id)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle()
+      setIsAdmin(adminCheck?.role === 'admin')
+
       const { data: regs } = await supabase
         .from('match_registrations')
         .select('user_id, profiles(username, full_name, avatar_url, preferred_role)')
@@ -155,13 +167,14 @@ export default function TeamsPage() {
       })
 
       const allPlayers: PlayerData[] = regs.map((r) => {
-        const p = r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null }
+        const p = r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null }
         return {
           id: r.user_id,
           username: p?.username ?? r.user_id,
           full_name: p?.full_name ?? null,
           avatar_url: p?.avatar_url ?? null,
           overall: 0,
+          role: p?.preferred_role ?? 'C',
         }
       })
 
@@ -224,6 +237,37 @@ export default function TeamsPage() {
       setConfirmed(true)
       showToast('Squadre confermate', 'success')
     })
+  }
+
+  function handleSwap(id1: string, id2: string) {
+    if (!teamsResult) return
+    const inTeam1 = teamsResult.team1.some(p => p.id === id1)
+    const p1 = inTeam1
+      ? teamsResult.team1.find(p => p.id === id1)!
+      : teamsResult.team2.find(p => p.id === id1)!
+    const p2 = inTeam1
+      ? teamsResult.team2.find(p => p.id === id2)!
+      : teamsResult.team1.find(p => p.id === id2)!
+
+    const newTeam1 = inTeam1
+      ? teamsResult.team1.map(p => p.id === id1 ? p2 : p)
+      : teamsResult.team1.map(p => p.id === id2 ? p1 : p)
+    const newTeam2 = inTeam1
+      ? teamsResult.team2.map(p => p.id === id2 ? p1 : p)
+      : teamsResult.team2.map(p => p.id === id1 ? p2 : p)
+
+    const s1 = newTeam1.reduce((sum, p) => sum + p.overall, 0)
+    const s2 = newTeam2.reduce((sum, p) => sum + p.overall, 0)
+
+    setTeamsResult({
+      ...teamsResult,
+      team1: newTeam1,
+      team2: newTeam2,
+      team1Strength: Math.round(s1 * 10) / 10,
+      team2Strength: Math.round(s2 * 10) / 10,
+    })
+    setConfirmed(false)
+    showToast('Scambio effettuato! Ricordati di confermare le squadre.', 'info')
   }
 
   async function handleSaveTeamNames() {
@@ -327,15 +371,53 @@ export default function TeamsPage() {
         )}
       </div>
 
-      <TeamSplit
-        team1={teamsResult.team1}
-        team2={teamsResult.team2}
-        team1Strength={teamsResult.team1Strength}
-        team2Strength={teamsResult.team2Strength}
-        balanceScore={teamsResult.balanceScore}
-        team1Name={team1Name}
-        team2Name={team2Name}
-      />
+      {/* View toggle */}
+      <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: '0.25rem', border: '1px solid var(--color-border)' }}>
+        {(['pitch', 'list'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            style={{
+              flex: 1,
+              padding: '0.45rem 0',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.06em',
+              transition: 'background 0.15s, color 0.15s',
+              background: viewMode === mode ? 'var(--color-primary)' : 'transparent',
+              color: viewMode === mode ? '#0A0C12' : 'var(--color-text-3)',
+            }}
+          >
+            {mode === 'pitch' ? '⚽ Campo' : '📋 Lista'}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === 'pitch' ? (
+        <PitchFormation
+          team1={teamsResult.team1}
+          team2={teamsResult.team2}
+          team1Name={team1Name}
+          team2Name={team2Name}
+          isAdmin={isAdmin}
+          onSwap={handleSwap}
+        />
+      ) : (
+        <TeamSplit
+          team1={teamsResult.team1}
+          team2={teamsResult.team2}
+          team1Strength={teamsResult.team1Strength}
+          team2Strength={teamsResult.team2Strength}
+          balanceScore={teamsResult.balanceScore}
+          team1Name={team1Name}
+          team2Name={team2Name}
+        />
+      )}
 
       {!confirmed ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
