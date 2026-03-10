@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           flexDirection: 'column',
           alignItems: 'center',
           gap: '0.5rem',
-          zIndex: 300,
+          zIndex: 'var(--z-toast, 9000)',
           pointerEvents: 'none',
           padding: '0 1rem',
         }}

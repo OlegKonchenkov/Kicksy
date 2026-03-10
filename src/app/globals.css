@@ -92,8 +92,8 @@
   --z-raised:   10;
   --z-overlay:  100;
   --z-modal:    200;
-  --z-toast:    300;
   --z-nav:      400;
+  --z-toast:    9000;  /* always above everything including nav */
 }
 
 /* ============================================================
