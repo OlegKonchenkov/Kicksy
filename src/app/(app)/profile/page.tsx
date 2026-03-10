@@ -1,7 +1,10 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Avatar, XPBar, BadgeShelf, RadarChart } from '@/components/ui'
+import { Avatar, XPBar, RadarChart, PlayerFIFACard, BadgeShowcase } from '@/components/ui'
+import type { FIFASkillBar } from '@/components/ui'
 import type { PlayerBadge, Badge } from '@/types'
+import { getPlayerOverall } from '@/lib/team-balancer'
+import type { SkillSet } from '@/lib/team-balancer'
 import Link from 'next/link'
 
 type GroupMembership = {
@@ -24,7 +27,7 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [profileRes, statsRes, badgesRes, groupsRes, ratingsRes, commentsRes] = await Promise.all([
+  const [profileRes, statsRes, badgesRes, groupsRes, ratingsRes, commentsRes, allBadgesRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('player_stats').select('*').eq('user_id', user.id),
     supabase.from('player_badges').select('*, badges(*)').eq('user_id', user.id).order('earned_at', { ascending: false }),
@@ -44,6 +47,7 @@ export default async function ProfilePage() {
       .not('comment', 'is', null)
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase.from('badges').select('*').order('tier').order('condition_value'),
   ])
 
   const profile = profileRes.data
@@ -97,6 +101,38 @@ export default async function ProfilePage() {
     avg: computeProfileAvg(ratingRows, cat.fields),
   }))
 
+  const SKILL_FIELDS: (keyof SkillSet)[] = [
+    'velocita', 'resistenza', 'forza', 'salto', 'agilita',
+    'tecnica_palla', 'dribbling', 'passaggio', 'tiro', 'colpo_di_testa',
+    'lettura_gioco', 'posizionamento', 'pressing', 'costruzione',
+    'marcatura', 'tackle', 'intercettamento', 'copertura',
+    'finalizzazione', 'assist_making',
+    'leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play',
+  ]
+
+  const avgSkills = Object.fromEntries(
+    SKILL_FIELDS.map(k => [k, computeProfileAvg(ratingRows, [k])])
+  ) as unknown as SkillSet
+
+  const ovr = ratingRows.length > 0
+    ? getPlayerOverall({
+        id: user.id,
+        role: (profile.preferred_role ?? 'C') as import('@/types').PlayerRole,
+        role2: profile.preferred_role_2 as import('@/types').PlayerRole | undefined,
+        skills: avgSkills,
+        ratingCount: ratingRows.length,
+      })
+    : 0
+
+  const fifaSkillBars: FIFASkillBar[] = [
+    { abbr: 'FIS', label: 'Fisica', value: profileSkillAverages[0].avg, color: '#3B82F6' },
+    { abbr: 'TEC', label: 'Tecnica', value: profileSkillAverages[1].avg, color: '#C8FF6B' },
+    { abbr: 'TAT', label: 'Tattica', value: profileSkillAverages[2].avg, color: '#FFB800' },
+    { abbr: 'DIF', label: 'Difesa', value: profileSkillAverages[3].avg, color: '#EF4444' },
+    { abbr: 'ATT', label: 'Attacco', value: profileSkillAverages[4].avg, color: '#F97316' },
+    { abbr: 'MEN', label: 'Mentalità', value: profileSkillAverages[5].avg, color: '#A855F7' },
+  ]
+
   // Comments
   function relativeTimeProfile(iso: string) {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
@@ -129,6 +165,7 @@ export default async function ProfilePage() {
     ...pb,
     badge: pb.badges as unknown as Badge,
   })) as (PlayerBadge & { badge: Badge })[]
+  const allBadges = (allBadgesRes.data ?? []) as Badge[]
 
   const groups = ((groupsRes.data ?? []) as unknown as GroupMembership[])
     .map((row) => ({ id: row.group_id, name: row.groups?.name ?? 'Gruppo' }))
@@ -144,31 +181,20 @@ export default async function ProfilePage() {
         </Link>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-        <Avatar src={profile.avatar_url} name={profile.full_name ?? profile.username} size="xl" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
-            {profile.full_name ?? profile.username}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>@{profile.username}</div>
-          {(role || role2) && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem' }}>
-              {role && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <span style={{ fontSize: '0.875rem' }}>{role.emoji}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{role.label}</span>
-                </div>
-              )}
-              {role2 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <span style={{ fontSize: '0.875rem' }}>{role2.emoji}</span>
-                  <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{role2.label} (2°)</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <PlayerFIFACard
+        player={{
+          user_id: user.id,
+          username: profile.username,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          level: profile.level,
+          preferred_role: profile.preferred_role,
+          preferred_role_2: profile.preferred_role_2,
+        }}
+        ovr={ovr}
+        skillBars={fifaSkillBars}
+        isMe
+      />
 
       <div style={{ padding: '1.25rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
         <XPBar xp={profile.xp} compact={false} />
@@ -319,16 +345,12 @@ export default async function ProfilePage() {
         </div>
       )}
 
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)' }}>
-            Badge ({badges.length})
-          </h2>
+      {(badges.length > 0 || allBadges.length > 0) && (
+        <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', padding: '1.25rem' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', marginBottom: '1rem' }}>🏅 Badge</h3>
+          <BadgeShowcase earnedBadges={badges} allBadges={allBadges} />
         </div>
-        <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-          <BadgeShelf badges={badges} maxVisible={9} />
-        </div>
-      </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <Link href="/profile/settings" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', textDecoration: 'none' }}>
