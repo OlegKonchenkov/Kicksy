@@ -193,20 +193,27 @@ function countNeverTogetherViolations(
  * Groups: DEF={D,E}, MID={C,E}, ATT={A,W}
  * Returns penalty score (added to annealing cost).
  */
-function computeRoleImbalancePenalty(
+export function computeRoleImbalancePenalty(
   team1: string[],
   team2: string[],
-  roleMap: Map<string, PlayerRole>
+  roleMap: Map<string, PlayerRole>,
+  role2Map?: Map<string, PlayerRole>
 ): number {
   const groups: Array<{ roles: PlayerRole[] }> = [
     { roles: ['D', 'E'] },
     { roles: ['C', 'E'] },
     { roles: ['A', 'W'] },
   ]
+  const matchesGroup = (id: string, roles: PlayerRole[]) => {
+    const r1 = roleMap.get(id)
+    const r2 = role2Map?.get(id)
+    return (r1 !== undefined && roles.includes(r1)) ||
+           (r2 !== undefined && roles.includes(r2))
+  }
   let penalty = 0
   for (const { roles } of groups) {
-    const t1 = team1.filter(id => roles.includes(roleMap.get(id) ?? 'C')).length
-    const t2 = team2.filter(id => roles.includes(roleMap.get(id) ?? 'C')).length
+    const t1 = team1.filter(id => matchesGroup(id, roles)).length
+    const t2 = team2.filter(id => matchesGroup(id, roles)).length
     const diff = Math.abs(t1 - t2)
     if (diff > 1) penalty += (diff - 1) * 30
   }
@@ -246,6 +253,9 @@ export function generateBalancedTeams(
   const roleMap = new Map<string, PlayerRole>()
   for (const p of players) roleMap.set(p.id, p.role)
 
+  const role2Map = new Map<string, PlayerRole>()
+  for (const p of players) if (p.role2) role2Map.set(p.id, p.role2)
+
   const n = players.length
   const half = Math.floor(n / 2)
   const validIds = new Set(players.map((p) => p.id))
@@ -276,7 +286,7 @@ export function generateBalancedTeams(
   let bestViolations = currentViolations
   let bestT1 = [...team1]
   let bestT2 = [...team2]
-  let bestRolePenalty = computeRoleImbalancePenalty(bestT1, bestT2, roleMap)
+  let bestRolePenalty = computeRoleImbalancePenalty(bestT1, bestT2, roleMap, role2Map)
 
   // 3. Simulated annealing
   let temp = initialTemperature
@@ -294,11 +304,11 @@ export function generateBalancedTeams(
     const newS1 = s1 - (overalls.get(id1) ?? 0) + (overalls.get(id2) ?? 0)
     const newS2 = s2 - (overalls.get(id2) ?? 0) + (overalls.get(id1) ?? 0)
     const newDiff = Math.abs(newS1 - newS2)
-    const currentRolePenalty = computeRoleImbalancePenalty(team1, team2, roleMap)
+    const currentRolePenalty = computeRoleImbalancePenalty(team1, team2, roleMap, role2Map)
     team1[i1] = id2
     team2[i2] = id1
     const newViolations = countNeverTogetherViolations(team1, team2, constraints)
-    const newRolePenalty = computeRoleImbalancePenalty(team1, team2, roleMap)
+    const newRolePenalty = computeRoleImbalancePenalty(team1, team2, roleMap, role2Map)
     const prevCost = Math.abs(s1 - s2) + currentViolations * 1000 + currentRolePenalty
     const newCost = newDiff + newViolations * 1000 + newRolePenalty
 

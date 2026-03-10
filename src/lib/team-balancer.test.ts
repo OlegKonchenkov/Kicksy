@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { generateBalancedTeams, getPlayerOverall, type PlayerInput } from './team-balancer'
+import { generateBalancedTeams, getPlayerOverall, computeRoleImbalancePenalty, type PlayerInput } from './team-balancer'
+import type { PlayerRole } from '@/types'
 
 function makePlayer(id: string, role: PlayerInput['role'], skill = 5): PlayerInput {
   return {
@@ -74,5 +75,56 @@ describe('getPlayerOverall', () => {
     const high = makePlayer('h', 'A', 9)
     const low  = makePlayer('l', 'A', 3)
     expect(getPlayerOverall(high)).toBeGreaterThan(getPlayerOverall(low))
+  })
+})
+
+describe('computeRoleImbalancePenalty', () => {
+  it('returns 0 when both teams have balanced role distribution', () => {
+    const roleMap = new Map<string, PlayerRole>([
+      ['a', 'D'], ['b', 'D'],
+      ['c', 'C'], ['d', 'C'],
+    ])
+    expect(computeRoleImbalancePenalty(['a', 'c'], ['b', 'd'], roleMap)).toBe(0)
+  })
+
+  it('penalizes when all defenders on one team', () => {
+    const roleMap = new Map<string, PlayerRole>([
+      ['d1', 'D'], ['d2', 'D'], ['d3', 'D'],
+      ['m1', 'C'], ['m2', 'C'], ['m3', 'C'],
+    ])
+    const penalty = computeRoleImbalancePenalty(
+      ['d1', 'd2', 'd3'],
+      ['m1', 'm2', 'm3'],
+      roleMap
+    )
+    // DEF: |3-0|=3 → (3-1)*30=60; MID: |0-3|=3 → 60; ATT: 0
+    expect(penalty).toBe(120)
+  })
+
+  it('reduces penalty when secondary role fills a group gap', () => {
+    const roleMap = new Map<string, PlayerRole>([
+      ['d1', 'D'], ['d2', 'D'], ['d3', 'D'],
+      ['m1', 'C'], ['m2', 'C'], ['m3', 'C'],
+    ])
+    // d1 has secondary role C → counts in MID group too
+    const role2Map = new Map<string, PlayerRole>([['d1', 'C']])
+
+    const withoutRole2 = computeRoleImbalancePenalty(
+      ['d1', 'd2', 'd3'], ['m1', 'm2', 'm3'], roleMap
+    )
+    const withRole2 = computeRoleImbalancePenalty(
+      ['d1', 'd2', 'd3'], ['m1', 'm2', 'm3'], roleMap, role2Map
+    )
+    // With role2: MID: t1=1 (d1 via C), t2=3 → diff=2 → 30; total=90 < 120
+    expect(withRole2).toBeLessThan(withoutRole2)
+    expect(withRole2).toBe(90)
+  })
+
+  it('does not break when role2Map is empty', () => {
+    const roleMap = new Map<string, PlayerRole>([['a', 'A'], ['b', 'D']])
+    const role2Map = new Map<string, PlayerRole>()
+    expect(() =>
+      computeRoleImbalancePenalty(['a'], ['b'], roleMap, role2Map)
+    ).not.toThrow()
   })
 })
