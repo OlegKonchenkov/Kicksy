@@ -120,7 +120,7 @@ export default function TeamsPage() {
 
       const { data: regs } = await supabase
         .from('match_registrations')
-        .select('user_id, profiles(username, full_name, avatar_url, preferred_role)')
+        .select('user_id, profiles(username, full_name, avatar_url, preferred_role, preferred_role_2)')
         .eq('match_id', matchId)
         .eq('status', 'confirmed')
 
@@ -148,7 +148,8 @@ export default function TeamsPage() {
 
       const inputs: PlayerInput[] = regs.map((reg) => {
         const profile = reg.profiles as unknown as {
-          username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null
+          username: string; full_name: string | null; avatar_url: string | null
+          preferred_role: string | null; preferred_role_2: string | null
         }
         const userRatings = (ratings ?? []).filter((r) => r.ratee_id === reg.user_id)
         const ratingCount = userRatings.length
@@ -165,13 +166,14 @@ export default function TeamsPage() {
         return {
           id: reg.user_id,
           role: (profile.preferred_role ?? 'C') as PlayerInput['role'],
+          role2: profile.preferred_role_2 ? profile.preferred_role_2 as PlayerInput['role'] : undefined,
           skills: avgSkills,
           ratingCount,
         }
       })
 
       const allPlayers: PlayerData[] = regs.map((r) => {
-        const p = r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null }
+        const p = r.profiles as unknown as { username: string; full_name: string | null; avatar_url: string | null; preferred_role: string | null; preferred_role_2: string | null }
         return {
           id: r.user_id,
           username: p?.username ?? r.user_id,
