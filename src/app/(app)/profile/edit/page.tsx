@@ -27,6 +27,7 @@ export default function ProfileEditPage() {
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [preferredRole, setPreferredRole] = useState<RoleValue | ''>('')
+  const [preferredRole2, setPreferredRole2] = useState<RoleValue | ''>('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
@@ -37,7 +38,7 @@ export default function ProfileEditPage() {
       if (!user) { router.push('/login'); return }
       supabase
         .from('profiles')
-        .select('username, full_name, preferred_role, avatar_url')
+        .select('username, full_name, preferred_role, preferred_role_2, avatar_url')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
@@ -45,6 +46,7 @@ export default function ProfileEditPage() {
             setUsername(data.username ?? '')
             setFullName(data.full_name ?? '')
             setPreferredRole((data.preferred_role as RoleValue) ?? '')
+            setPreferredRole2((data.preferred_role_2 as RoleValue) ?? '')
             setAvatarUrl(data.avatar_url ?? null)
           }
           setLoading(false)
@@ -84,6 +86,7 @@ export default function ProfileEditPage() {
           username: username.trim().toLowerCase(),
           full_name: fullName.trim() || null,
           preferred_role: preferredRole || null,
+          preferred_role_2: preferredRole2 || null,
           avatar_url: nextAvatarUrl,
         })
         .eq('id', user.id)
@@ -249,22 +252,42 @@ export default function ProfileEditPage() {
           </label>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {ROLE_OPTIONS.map(opt => {
-              const isSelected = preferredRole === opt.value
+              const isPrimary = preferredRole === opt.value
+              const isSecondary = preferredRole2 === opt.value
+              const isSelected = isPrimary || isSecondary
               return (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setPreferredRole(isSelected ? '' : opt.value)}
+                  onClick={() => {
+                    if (opt.value === preferredRole) {
+                      // Deselect primary; secondary (if any) becomes primary
+                      setPreferredRole(preferredRole2)
+                      setPreferredRole2('')
+                    } else if (opt.value === preferredRole2) {
+                      // Deselect secondary
+                      setPreferredRole2('')
+                    } else if (!preferredRole) {
+                      setPreferredRole(opt.value)
+                    } else if (!preferredRole2) {
+                      // Set as secondary (can't select same role twice)
+                      if (opt.value !== preferredRole) setPreferredRole2(opt.value)
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.375rem',
                     padding: '0.5rem 0.875rem',
-                    background: isSelected ? 'rgba(200,255,107,0.15)' : 'var(--color-elevated)',
-                    border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                    background: isPrimary
+                      ? 'rgba(200,255,107,0.15)'
+                      : isSecondary
+                        ? 'rgba(245,158,11,0.12)'
+                        : 'var(--color-elevated)',
+                    border: `1px solid ${isPrimary ? 'var(--color-primary)' : isSecondary ? '#f59e0b' : 'var(--color-border)'}`,
                     borderRadius: 999,
                     cursor: 'pointer',
-                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text-2)',
+                    color: isPrimary ? 'var(--color-primary)' : isSecondary ? '#f59e0b' : 'var(--color-text-2)',
                     fontSize: '0.8125rem',
                     fontFamily: 'var(--font-display)',
                     textTransform: 'uppercase',
@@ -274,11 +297,14 @@ export default function ProfileEditPage() {
                   }}
                 >
                   <span>{opt.emoji}</span>
-                  <span>{opt.label}</span>
+                  <span>{opt.label}{isSecondary ? ' (2°)' : ''}</span>
                 </button>
               )
             })}
           </div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--color-text-3)', marginTop: '0.25rem' }}>
+            Seleziona fino a 2 ruoli. Il primo è il ruolo principale.
+          </p>
         </div>
       </div>
 
