@@ -1,13 +1,14 @@
 'use client'
 
-import type { Badge, PlayerBadge } from '@/types'
+import type { CSSProperties } from 'react'
+import type { Badge, BadgeTier, PlayerBadge } from '@/types'
 
 export type BadgeShowcaseProps = {
   earnedBadges: Array<PlayerBadge & { badge: Badge }>
   allBadges: Badge[]
 }
 
-const TIER_CONFIG = {
+const TIER_CONFIG: Record<BadgeTier, { color: string; glow: string; bg: string }> = {
   bronze: { color: '#cd7f32', glow: 'rgba(205,127,50,0.45)',  bg: 'rgba(205,127,50,0.12)' },
   silver: { color: '#a8a8a8', glow: 'rgba(168,168,168,0.40)', bg: 'rgba(168,168,168,0.10)' },
   gold:   { color: '#FFD700', glow: 'rgba(255,215,0,0.45)',   bg: 'rgba(255,215,0,0.12)'  },
@@ -76,18 +77,20 @@ function LockedBadgeItem({ badge }: { badge: Badge }) {
   const hint = badgeHint(badge)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: '50%',
-        background: 'var(--color-elevated)',
-        border: `2px solid ${tier.color}25`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '1.25rem',
-        filter: 'grayscale(1)',
-        opacity: 0.38,
-        position: 'relative',
-      }}>
-        {badge.icon}
-        {/* Lock overlay */}
+      {/* wrapper for relative positioning of the lock overlay */}
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%',
+          background: 'var(--color-elevated)',
+          border: `2px solid ${tier.color}25`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '1.25rem',
+          filter: 'grayscale(1)',
+          opacity: 0.38,
+        }}>
+          {badge.icon}
+        </div>
+        {/* Lock overlay — sibling of circle, not child, so it doesn't inherit greyscale/opacity */}
         <div style={{
           position: 'absolute', top: -4, right: -4,
           width: 16, height: 16, borderRadius: '50%',
@@ -126,7 +129,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
   const earnedKeys = new Set(earnedBadges.map(pb => pb.badge.key))
   const lockedBadges = allBadges.filter(b => !earnedKeys.has(b.key))
 
-  const sectionLabel: React.CSSProperties = {
+  const sectionLabel: CSSProperties = {
     fontFamily: 'var(--font-display)',
     fontSize: '0.7rem',
     fontWeight: 700,
@@ -136,7 +139,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
     marginBottom: '0.625rem',
   }
 
-  const grid: React.CSSProperties = {
+  const grid: CSSProperties = {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '0.875rem 1rem',
