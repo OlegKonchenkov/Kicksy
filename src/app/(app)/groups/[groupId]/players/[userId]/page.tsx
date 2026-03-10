@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Avatar, RadarChart } from '@/components/ui'
+import { Avatar, RadarChart, PlayerFIFACard, BadgeShowcase } from '@/components/ui'
+import type { FIFASkillBar } from '@/components/ui'
+import { getPlayerOverall } from '@/lib/team-balancer'
+import type { SkillSet } from '@/lib/team-balancer'
 
 interface PageProps {
   params: Promise<{ groupId: string; userId: string }>
@@ -72,7 +75,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const isMe = user.id === userId
 
   // Parallel fetch all data
-  const [profileRes, groupRes, statsRes, badgesRes, ratingsRes, commentsRes] = await Promise.all([
+  const [profileRes, groupRes, statsRes, badgesRes, ratingsRes, commentsRes, allBadgesRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('username, full_name, avatar_url, xp, level, bio, preferred_role, preferred_role_2')
@@ -108,6 +111,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
       .not('comment', 'is', null)
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase.from('badges').select('*').order('tier').order('condition_value'),
   ])
 
   if (profileRes.error) notFound()
@@ -151,6 +155,43 @@ export default async function GroupPlayerPage({ params }: PageProps) {
     avg: computeAvg(ratingRows, cat.fields),
   }))
 
+  // ── Per-skill averages for OVR ─────────────────────────────────────────────
+  const SKILL_FIELDS: (keyof SkillSet)[] = [
+    'velocita', 'resistenza', 'forza', 'salto', 'agilita',
+    'tecnica_palla', 'dribbling', 'passaggio', 'tiro', 'colpo_di_testa',
+    'lettura_gioco', 'posizionamento', 'pressing', 'costruzione',
+    'marcatura', 'tackle', 'intercettamento', 'copertura',
+    'finalizzazione', 'assist_making',
+    'leadership', 'comunicazione', 'mentalita_competitiva', 'fair_play',
+  ]
+
+  const avgSkills = Object.fromEntries(
+    SKILL_FIELDS.map(k => [k, computeAvg(ratingRows, [k])])
+  ) as unknown as SkillSet
+
+  const ovr = ratingRows.length > 0
+    ? getPlayerOverall({
+        id: userId,
+        role: (profile.preferred_role ?? 'C') as import('@/types').PlayerRole,
+        role2: profile.preferred_role_2 as import('@/types').PlayerRole | undefined,
+        skills: avgSkills,
+        ratingCount: ratingRows.length,
+      })
+    : 0
+
+  // ── FIFA skill bars (6 categories) ────────────────────────────────────────
+  const fifaSkillBars: FIFASkillBar[] = [
+    { abbr: 'FIS', label: 'Fisica',    value: skillAverages[0].avg, color: '#3B82F6' },
+    { abbr: 'TEC', label: 'Tecnica',   value: skillAverages[1].avg, color: '#C8FF6B' },
+    { abbr: 'TAT', label: 'Tattica',   value: skillAverages[2].avg, color: '#FFB800' },
+    { abbr: 'DIF', label: 'Difesa',    value: skillAverages[3].avg, color: '#EF4444' },
+    { abbr: 'ATT', label: 'Attacco',   value: skillAverages[4].avg, color: '#F97316' },
+    { abbr: 'MEN', label: 'Mentalità', value: skillAverages[5].avg, color: '#A855F7' },
+  ]
+
+  // ── All badges for showcase ────────────────────────────────────────────────
+  const allBadges = (allBadgesRes.data ?? []) as import('@/types').Badge[]
+
   // Stats values
   const matchesPlayed = stats?.matches_played ?? 0
   const matchesWon = stats?.matches_won ?? 0
@@ -164,6 +205,8 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const hasBadges = badgeRows.length > 0
   const isEmpty = !hasStats && !hasRatings && !hasBadges
 
+  const isCurrentUserAdmin = viewerMember.role === 'admin'
+
   function relativeTime(iso: string) {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
     if (days === 0) return 'oggi'
@@ -173,15 +216,24 @@ export default async function GroupPlayerPage({ params }: PageProps) {
     return `${Math.floor(days / 30)}mesi fa`
   }
 
-  // Badge tier colors
-  const tierColor = (tier: string | null | undefined) => {
-    if (tier === 'gold') return '#FFD700'
-    if (tier === 'silver') return '#C0C0C0'
-    if (tier === 'bronze') return '#CD7F32'
-    return 'var(--color-border)'
-  }
-
   const displayName = profile.full_name ?? profile.username
+
+  // Adapt badgeRows for BadgeShowcase: it needs PlayerBadge & { badge: Badge }
+  // The Supabase join returns `badges` (nested), so we map to `badge`
+  const earnedBadgesForShowcase = badgeRows
+    .filter(row => row.badges != null)
+    .map((row, idx) => {
+      const b = row.badges as unknown as import('@/types').Badge
+      return {
+        id: String(idx),
+        user_id: userId,
+        badge_id: b.id,
+        group_id: groupId,
+        earned_at: row.earned_at,
+        equipped: false,
+        badge: b,
+      }
+    })
 
   return (
     <div style={{ padding: '1.5rem 1rem 3rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -230,131 +282,22 @@ export default async function GroupPlayerPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Player hero card */}
-      <div style={{
-        padding: '1.25rem',
-        background: isMe ? 'rgba(200,255,107,0.05)' : 'var(--color-surface)',
-        borderRadius: 'var(--radius-lg)',
-        border: `1px solid ${isMe ? 'rgba(200,255,107,0.25)' : 'var(--color-border)'}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-      }}>
-        <div style={{ filter: isMe ? 'drop-shadow(0 0 12px rgba(200,255,107,0.4))' : undefined, flexShrink: 0 }}>
-          <Avatar src={profile.avatar_url} name={displayName} size="lg" />
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Name */}
-          <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.5rem',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            color: isMe ? 'var(--color-primary)' : 'var(--color-text-1)',
-            lineHeight: 1.1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {displayName}
-          </div>
-
-          {/* Level + role + admin badges */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginTop: '0.5rem' }}>
-            {/* Level badge */}
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '0.15rem 0.5rem',
-              background: 'rgba(200,255,107,0.12)',
-              border: '1px solid rgba(200,255,107,0.3)',
-              borderRadius: 999,
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.7rem',
-              fontWeight: 700,
-              color: 'var(--color-primary)',
-            }}>
-              Lv.{profile.level}
-            </span>
-
-            {/* Role badge */}
-            {profile.preferred_role && roleLabels[profile.preferred_role] && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '0.15rem 0.5rem',
-                background: 'var(--color-elevated)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 999,
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.65rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--color-text-2)',
-              }}>
-                {roleLabels[profile.preferred_role]}
-              </span>
-            )}
-
-            {/* Secondary role badge */}
-            {profile.preferred_role_2 && roleLabels[profile.preferred_role_2] && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '0.15rem 0.5rem',
-                background: 'rgba(245,158,11,0.12)',
-                border: '1px solid rgba(245,158,11,0.4)',
-                borderRadius: 999,
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.65rem',
-                fontWeight: 700,
-                textTransform: 'uppercase' as const,
-                letterSpacing: '0.06em',
-                color: '#f59e0b',
-              }}>
-                {roleLabels[profile.preferred_role_2]} (2°)
-              </span>
-            )}
-
-            {/* Admin badge */}
-            {targetMember.role === 'admin' && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '0.15rem 0.5rem',
-                background: 'rgba(255,215,0,0.12)',
-                border: '1px solid rgba(255,215,0,0.3)',
-                borderRadius: 999,
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.65rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: '#FFD700',
-              }}>
-                Admin
-              </span>
-            )}
-          </div>
-
-          {/* Bio */}
-          {profile.bio && (
-            <div style={{
-              fontSize: '0.8rem',
-              color: 'var(--color-text-3)',
-              marginTop: '0.5rem',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {profile.bio}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Player FIFA card */}
+      <PlayerFIFACard
+        player={{
+          user_id: userId,
+          username: profile.username,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          level: profile.level,
+          preferred_role: profile.preferred_role,
+          preferred_role_2: profile.preferred_role_2,
+        }}
+        ovr={ovr}
+        skillBars={fifaSkillBars}
+        isMe={isMe}
+        isAdmin={isCurrentUserAdmin}
+      />
 
       {/* Empty state */}
       {isEmpty && (
@@ -593,48 +536,24 @@ export default async function GroupPlayerPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Badges */}
-      {hasBadges && (
-        <div>
-          <h2 style={{
+      {/* Badge Showcase */}
+      {(hasBadges || allBadges.length > 0) && (
+        <div style={{
+          background: 'var(--color-surface)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--color-border)',
+          padding: '1.25rem',
+        }}>
+          <h3 style={{
             fontFamily: 'var(--font-display)',
-            fontSize: '0.875rem',
+            fontSize: '0.8125rem',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
-            color: 'var(--color-text-3)',
-            marginBottom: '0.875rem',
-          }}>
-            Badge del Gruppo
-          </h2>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {badgeRows.map((row, idx) => {
-              const badge = row.badges as unknown as { key: string; name_it: string; icon: string; tier: string | null } | null
-              if (!badge) return null
-              const borderCol = tierColor(badge.tier)
-              return (
-                <div
-                  key={`${badge.key}-${idx}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.375rem',
-                    padding: '0.375rem 0.75rem',
-                    background: 'var(--color-surface)',
-                    border: `1px solid ${borderCol}`,
-                    borderRadius: 999,
-                    fontSize: '0.75rem',
-                    color: 'var(--color-text-1)',
-                    fontWeight: 600,
-                  }}
-                >
-                  <span style={{ fontSize: '1rem', lineHeight: 1 }}>{badge.icon}</span>
-                  <span>{badge.name_it}</span>
-                </div>
-              )
-            })}
-          </div>
+            color: 'var(--color-text-2)',
+            marginBottom: '1rem',
+          }}>🏅 Badge</h3>
+          <BadgeShowcase earnedBadges={earnedBadgesForShowcase} allBadges={allBadges} />
         </div>
       )}
 
