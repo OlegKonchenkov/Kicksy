@@ -75,7 +75,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const [profileRes, groupRes, statsRes, badgesRes, ratingsRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('username, full_name, avatar_url, xp, level, bio, preferred_role')
+      .select('username, full_name, avatar_url, xp, level, bio, preferred_role, preferred_role_2')
       .eq('id', userId)
       .single(),
     supabase
@@ -262,6 +262,26 @@ export default async function GroupPlayerPage({ params }: PageProps) {
                 color: 'var(--color-text-2)',
               }}>
                 {roleLabels[profile.preferred_role]}
+              </span>
+            )}
+
+            {/* Secondary role badge */}
+            {profile.preferred_role_2 && roleLabels[profile.preferred_role_2] && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0.15rem 0.5rem',
+                background: 'rgba(245,158,11,0.12)',
+                border: '1px solid rgba(245,158,11,0.4)',
+                borderRadius: 999,
+                fontFamily: 'var(--font-display)',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                textTransform: 'uppercase' as const,
+                letterSpacing: '0.06em',
+                color: '#f59e0b',
+              }}>
+                {roleLabels[profile.preferred_role_2]} (2°)
               </span>
             )}
 

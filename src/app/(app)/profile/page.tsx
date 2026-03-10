@@ -91,6 +91,7 @@ export default async function ProfilePage() {
   }))
 
   const role = profile.preferred_role ? ROLE_LABELS[profile.preferred_role] : null
+  const role2 = profile.preferred_role_2 ? ROLE_LABELS[profile.preferred_role_2] : null
 
   const badges = (badgesRes.data ?? []).map((pb) => ({
     ...pb,
@@ -118,10 +119,20 @@ export default async function ProfilePage() {
             {profile.full_name ?? profile.username}
           </div>
           <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>@{profile.username}</div>
-          {role && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem' }}>{role.emoji}</span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{role.label}</span>
+          {(role || role2) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem' }}>
+              {role && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <span style={{ fontSize: '0.875rem' }}>{role.emoji}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{role.label}</span>
+                </div>
+              )}
+              {role2 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <span style={{ fontSize: '0.875rem' }}>{role2.emoji}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{role2.label} (2°)</span>
+                </div>
+              )}
             </div>
           )}
         </div>
