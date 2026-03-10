@@ -1259,7 +1259,7 @@ async function awardProfileXP(userId: string, xpGain: number) {
 export async function submitRatings(
   matchId: string,
   groupId: string,
-  ratings: Array<{ rateeId: string; skills: SkillRatings }>
+  ratings: Array<{ rateeId: string; skills: SkillRatings; comment?: string }>
 ): Promise<AsyncResult<true>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1282,6 +1282,7 @@ export async function submitRatings(
     ratee_id: r.rateeId,
     group_id: groupId,
     match_id: matchId,
+    comment: r.comment ?? null,
     ...r.skills,
   }))
 
@@ -1298,7 +1299,7 @@ export async function submitRatings(
 
 export async function submitGroupRatings(
   groupId: string,
-  ratings: Array<{ rateeId: string; skills: SkillRatings }>
+  ratings: Array<{ rateeId: string; skills: SkillRatings; comment?: string }>
 ): Promise<AsyncResult<true>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1321,6 +1322,7 @@ export async function submitGroupRatings(
     ratee_id: r.rateeId,
     group_id: groupId,
     match_id: null,
+    comment: r.comment ?? null,
     ...r.skills,
   }))
 
