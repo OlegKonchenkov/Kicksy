@@ -8,7 +8,7 @@ interface PitchPlayer {
   username: string
   full_name: string | null
   avatar_url: string | null
-  overall: number
+  overall?: number   // optional — not shown when absent (match detail view)
   role?: string
 }
 
@@ -115,13 +115,15 @@ function PlayerToken({
       }}>
         {name}
       </div>
-      <div style={{
-        fontSize: '0.55rem',
-        fontFamily: 'var(--font-mono)',
-        color: 'rgba(255,255,255,0.5)',
-      }}>
-        {player.overall}
-      </div>
+      {player.overall !== undefined && player.overall > 0 && (
+        <div style={{
+          fontSize: '0.55rem',
+          fontFamily: 'var(--font-mono)',
+          color: 'rgba(255,255,255,0.5)',
+        }}>
+          {player.overall}
+        </div>
+      )}
     </button>
   )
 }
