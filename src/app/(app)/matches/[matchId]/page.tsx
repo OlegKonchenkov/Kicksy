@@ -14,7 +14,7 @@ import {
   submitMvpVote,
   unregisterFromMatch,
 } from '@/lib/actions/matches'
-import { Avatar, Button, MatchCard, useToast } from '@/components/ui'
+import { Avatar, Button, MatchCard, PitchFormation, useToast } from '@/components/ui'
 import type { Match, MatchRegistration, MatchResult, RegistrationStatus } from '@/types'
 
 interface RegistrationWithProfile extends MatchRegistration {
@@ -77,13 +77,25 @@ export default function MatchDetailPage() {
   const [recapText, setRecapText] = useState<string | null>(null)
   const [isFinalizing, setIsFinalizing] = useState(false)
 
+  type ConfirmedPlayer = {
+    id: string
+    username: string
+    full_name: string | null
+    avatar_url: string | null
+    role?: string
+  }
+  const [confirmedTeams, setConfirmedTeams] = useState<{
+    team1: ConfirmedPlayer[]
+    team2: ConfirmedPlayer[]
+  } | null>(null)
+
   useEffect(() => {
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      const [matchRes, regsRes, resultRes, myRegRes] = await Promise.all([
+      const [matchRes, regsRes, resultRes, myRegRes, teamsRes] = await Promise.all([
         supabase.from('matches').select('*').eq('id', matchId).single(),
         supabase
           .from('match_registrations')
@@ -97,9 +109,45 @@ export default function MatchDetailPage() {
           .eq('match_id', matchId)
           .eq('user_id', user.id)
           .maybeSingle(),
+        supabase
+          .from('generated_teams')
+          .select('team1_user_ids, team2_user_ids')
+          .eq('match_id', matchId)
+          .eq('is_confirmed', true)
+          .maybeSingle(),
       ])
 
       if (matchRes.error) { setError('Partita non trovata'); setLoading(false); return }
+
+      // Load confirmed teams and their profiles (if any)
+      if (teamsRes.data) {
+        const allIds = [
+          ...(teamsRes.data.team1_user_ids as string[]),
+          ...(teamsRes.data.team2_user_ids as string[]),
+        ]
+        const { data: teamProfiles } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, preferred_role')
+          .in('id', allIds)
+
+        const profileMap = Object.fromEntries(
+          (teamProfiles ?? []).map((p) => [p.id, p])
+        )
+        const toPlayer = (id: string): ConfirmedPlayer => {
+          const p = profileMap[id]
+          return {
+            id,
+            username: p?.username ?? id,
+            full_name: p?.full_name ?? null,
+            avatar_url: p?.avatar_url ?? null,
+            role: p?.preferred_role ?? undefined,
+          }
+        }
+        setConfirmedTeams({
+          team1: (teamsRes.data.team1_user_ids as string[]).map(toPlayer),
+          team2: (teamsRes.data.team2_user_ids as string[]).map(toPlayer),
+        })
+      }
 
       const [{ data: adminMember }, { data: groupRes }, { data: pollsRes }, { data: commentsRes }, { data: recapRes }, { data: myCommentRes }] = await Promise.all([
         supabase
@@ -331,6 +379,29 @@ export default function MatchDetailPage() {
 
       <MatchCard match={match} registration={myRegistration} confirmedCount={confirmedCount} />
 
+      {confirmedTeams && (
+        <div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-3)',
+            marginBottom: '0.875rem',
+          }}>
+            Formazioni
+          </h2>
+          <PitchFormation
+            team1={confirmedTeams.team1}
+            team2={confirmedTeams.team2}
+            team1Name={data.team1Name}
+            team2Name={data.team2Name}
+            isAdmin={false}
+          />
+        </div>
+      )}
+
       {isPlayed && result && (
         <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', padding: '1.25rem', textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-text-3)', marginBottom: '0.5rem' }}>
@@ -555,7 +626,7 @@ export default function MatchDetailPage() {
                     Riapri
                   </Button>
                   <Link href={`/matches/${matchId}/teams`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
-                    Genera Squadre
+                    {confirmedTeams ? 'Modifica Squadre ✏️' : 'Genera Squadre'}
                   </Link>
                   <Link href={`/matches/${matchId}/result`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
                     Inserisci Risultato
