@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createMatch } from '@/lib/actions/matches'
 import { Button, Input } from '@/components/ui'
+import { getMapsHref } from '@/lib/maps'
 
 type MatchFormat = '5v5' | '8v8' | '11v11' | 'custom'
 
@@ -90,6 +91,7 @@ export default function NewMatchPage() {
   }
 
   const currentCfg = getPlayersConfig()
+  const mapsHref = location.trim() ? getMapsHref(location) : ''
 
   return (
     <div style={{ padding: '1.5rem 1rem' }}>
@@ -133,12 +135,22 @@ export default function NewMatchPage() {
         </div>
 
         <Input
-          label="Luogo (opzionale)"
-          placeholder="es. Campetto di Via Roma"
+          label="Luogo o link Maps (opzionale)"
+          placeholder="es. Campetto di Via Roma oppure link Google Maps"
           value={location}
           onChange={e => setLocation(e.target.value)}
           maxLength={120}
         />
+        {location.trim() && (
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', marginTop: '-0.5rem' }}
+          >
+            Apri posizione su Maps -&gt;
+          </a>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)' }}>

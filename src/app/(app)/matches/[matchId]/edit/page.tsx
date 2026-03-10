@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { deleteMatch, updateMatch } from '@/lib/actions/matches'
 import type { MatchStatus } from '@/types'
 import { useToast } from '@/components/ui'
+import { getMapsHref } from '@/lib/maps'
 
 type MatchFormat = '5v5' | '8v8' | '11v11' | 'custom'
 
@@ -102,6 +103,7 @@ export default function MatchEditPage() {
       teamSize: Math.max(2, Math.floor(maxPlayers / 2)),
     }
   }, [format, customPlayers])
+  const mapsHref = location.trim() ? getMapsHref(location) : ''
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -173,17 +175,17 @@ export default function MatchEditPage() {
           <Input label="Data" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           <Input label="Orario" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
         </div>
-        <Input label="Luogo" value={location} onChange={(e) => setLocation(e.target.value)} />
-              {location.trim() && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none' }}
-                >
-                  📍 Verifica su Maps →
-                </a>
-              )}
+        <Input label="Luogo o link Maps" value={location} onChange={(e) => setLocation(e.target.value)} />
+        {location.trim() && (
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none' }}
+          >
+            Verifica su Maps -&gt;
+          </a>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)' }}>

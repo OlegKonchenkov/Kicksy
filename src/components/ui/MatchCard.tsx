@@ -1,6 +1,7 @@
 'use client'
 
 import type { Match, MatchRegistration } from '@/types'
+import { getMapsHref } from '@/lib/maps'
 
 interface MatchCardProps {
   match: Match
@@ -37,6 +38,7 @@ export function MatchCard({ match, registration, confirmedCount = 0, onClick }: 
   const status = STATUS_CONFIG[match.status]
   const reg = registration ? REG_BADGE[registration.status] : null
   const spotsLeft = match.max_players - confirmedCount
+  const mapsHref = match.location ? getMapsHref(match.location) : null
 
   return (
     <button
@@ -103,9 +105,9 @@ export function MatchCard({ match, registration, confirmedCount = 0, onClick }: 
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--color-text-2)' }}>
           🕐 {formatTime(match.scheduled_at)}
         </span>
-        {match.location && (
+        {match.location && mapsHref && (
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(match.location)}`}
+            href={mapsHref}
             target="_blank"
             rel="noopener noreferrer"
             style={{
