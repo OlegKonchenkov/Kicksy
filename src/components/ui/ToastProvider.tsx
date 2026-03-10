@@ -37,7 +37,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           position: 'fixed',
           left: 0,
           right: 0,
-          bottom: 'max(1rem, env(safe-area-inset-bottom))',
+          bottom: 'var(--toast-bottom, max(1rem, env(safe-area-inset-bottom)))',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

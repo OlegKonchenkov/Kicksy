@@ -21,6 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         maxWidth: 600,
         margin: '0 auto',
         position: 'relative',
+        // Lifts the global ToastProvider above the bottom nav on app pages
+        ['--toast-bottom' as string]: 'calc(58px + max(0.75rem, env(safe-area-inset-bottom)))',
       }}
     >
       {/* Main content — bottom padding accounts for nav bar */}
