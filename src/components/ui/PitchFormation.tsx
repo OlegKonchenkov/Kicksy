@@ -196,8 +196,9 @@ export function PitchFormation({
     }
 
     if (selectedTeam === team) {
-      // Same team: change selection
+      // Same team: change selection (explicitly set both to keep state in sync)
       setSelectedId(id)
+      setSelectedTeam(team)
       return
     }
 

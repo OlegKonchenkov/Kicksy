@@ -217,6 +217,9 @@ export default function TeamsPage() {
     if (!teamsResult) return
     startTransition(async () => {
       const supabase = createClient()
+      // Delete any existing record for this match to prevent duplicate rows
+      await supabase.from('generated_teams').delete().eq('match_id', matchId)
+
       const { error } = await supabase
         .from('generated_teams')
         .insert({
@@ -247,11 +250,12 @@ export default function TeamsPage() {
     if (!teamsResult) return
     const inTeam1 = teamsResult.team1.some(p => p.id === id1)
     const p1 = inTeam1
-      ? teamsResult.team1.find(p => p.id === id1)!
-      : teamsResult.team2.find(p => p.id === id1)!
+      ? teamsResult.team1.find(p => p.id === id1)
+      : teamsResult.team2.find(p => p.id === id1)
     const p2 = inTeam1
-      ? teamsResult.team2.find(p => p.id === id2)!
-      : teamsResult.team1.find(p => p.id === id2)!
+      ? teamsResult.team2.find(p => p.id === id2)
+      : teamsResult.team1.find(p => p.id === id2)
+    if (!p1 || !p2) return
 
     const newTeam1 = inTeam1
       ? teamsResult.team1.map(p => p.id === id1 ? p2 : p)
