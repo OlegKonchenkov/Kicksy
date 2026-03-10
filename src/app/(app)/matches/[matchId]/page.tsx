@@ -120,6 +120,7 @@ export default function MatchDetailPage() {
       if (matchRes.error) { setError('Partita non trovata'); setLoading(false); return }
 
       // Load confirmed teams and their profiles (if any)
+      if (teamsRes.error) console.error('Failed to load confirmed teams:', teamsRes.error)
       if (teamsRes.data) {
         const allIds = [
           ...(teamsRes.data.team1_user_ids as string[]),
@@ -395,8 +396,8 @@ export default function MatchDetailPage() {
           <PitchFormation
             team1={confirmedTeams.team1}
             team2={confirmedTeams.team2}
-            team1Name={data.team1Name}
-            team2Name={data.team2Name}
+            team1Name={team1Name}
+            team2Name={team2Name}
             isAdmin={false}
           />
         </div>
