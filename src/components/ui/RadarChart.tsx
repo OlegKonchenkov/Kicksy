@@ -1,5 +1,3 @@
-'use client'
-
 interface RadarChartProps {
   data: Record<string, number>   // e.g. { Fisica: 8.0, Tecnica: 7.0, ... }
   colors: Record<string, string> // same keys as data
@@ -11,6 +9,7 @@ export function RadarChart({ data, colors, size = 220, maxValue = 10 }: RadarCha
   const keys = Object.keys(data)
   const n = keys.length
   if (n < 3) return null
+  if (maxValue <= 0) return null
 
   const cx = size / 2
   const cy = size / 2
@@ -44,30 +43,30 @@ export function RadarChart({ data, colors, size = 220, maxValue = 10 }: RadarCha
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
-      {gridLevels.map((level, li) => {
+      {gridLevels.map((level) => {
         const pts = keys.map((_, i) => {
           const a = angle(i)
           return `${cx + r * level * Math.cos(a)},${cy + r * level * Math.sin(a)}`
         })
         return (
           <polygon
-            key={li}
+            key={level}
             points={pts.join(' ')}
             fill="none"
-            stroke="rgba(255,255,255,0.08)"
+            style={{ stroke: 'var(--color-border)' }}
             strokeWidth={1}
           />
         )
       })}
 
-      {keys.map((_, i) => {
+      {keys.map((k, i) => {
         const op = outerPoint(i)
         return (
           <line
-            key={i}
+            key={k}
             x1={cx} y1={cy}
             x2={op.x} y2={op.y}
-            stroke="rgba(255,255,255,0.1)"
+            style={{ stroke: 'var(--color-border)' }}
             strokeWidth={1}
           />
         )
@@ -75,7 +74,7 @@ export function RadarChart({ data, colors, size = 220, maxValue = 10 }: RadarCha
 
       <path
         d={polyPath}
-        fill="rgba(200,255,107,0.15)"
+        style={{ fill: 'var(--color-primary-dim)' }}
         stroke="var(--color-primary)"
         strokeWidth={2}
         strokeLinejoin="round"
@@ -91,7 +90,7 @@ export function RadarChart({ data, colors, size = 220, maxValue = 10 }: RadarCha
 
       {keys.map((k, i) => {
         const lp = labelPoint(i)
-        const color = colors[k] ?? 'var(--color-text-2)'
+        const color = colors[k] ?? 'var(--color-primary)'
         const cosVal = Math.cos(angle(i))
         const sinVal = Math.sin(angle(i))
         const anchor = Math.abs(cosVal) < 0.1 ? 'middle' : cosVal > 0 ? 'start' : 'end'
