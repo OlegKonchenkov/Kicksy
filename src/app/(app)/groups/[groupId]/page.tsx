@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Avatar } from '@/components/ui'
 import { MatchCard } from '@/components/ui'
 import { CalendarDays, Trophy, Star, Users, BarChart2 } from 'lucide-react'
+import { InviteCodeCard } from '@/components/groups/InviteCodeCard'
 
 interface PageProps {
   params: Promise<{ groupId: string }>
@@ -162,44 +163,11 @@ export default async function GroupDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          padding: '0.875rem 1rem',
-          background: 'var(--color-elevated)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--color-border)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: '0.75rem',
-            color: 'var(--color-text-3)',
-            fontFamily: 'var(--font-display)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 700,
-          }}
-        >
-          Codice:
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '1rem',
-            fontWeight: 700,
-            color: 'var(--color-primary)',
-            letterSpacing: '0.12em',
-          }}
-        >
-          {group.invite_code}
-        </span>
-        <span style={{ fontSize: '0.75rem', color: group.invite_link_enabled ? '#22c55e' : 'var(--color-danger)' }}>
-          {group.invite_link_enabled ? '• Attivo' : '• Disattivo'}
-        </span>
-      </div>
+      <InviteCodeCard
+        groupId={groupId}
+        inviteCode={group.invite_code}
+        inviteEnabled={group.invite_link_enabled}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
         <Link
