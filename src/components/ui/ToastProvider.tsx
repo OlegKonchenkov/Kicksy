@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 type ToastKind = 'success' | 'error' | 'info'
 
@@ -18,6 +19,14 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
+  const pathname = usePathname()
+  const isAuthRoute =
+    pathname === '/login' ||
+    pathname === '/onboarding' ||
+    pathname?.startsWith('/auth/')
+  const bottomOffset = isAuthRoute
+    ? 'max(1rem, env(safe-area-inset-bottom))'
+    : 'calc(58px + max(0.75rem, env(safe-area-inset-bottom)))'
 
   const showToast = useCallback((message: string, kind: ToastKind = 'info') => {
     const id = Date.now() + Math.floor(Math.random() * 1000)
@@ -37,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           position: 'fixed',
           left: 0,
           right: 0,
-          bottom: 'var(--toast-bottom, max(1rem, env(safe-area-inset-bottom)))',
+          bottom: bottomOffset,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
