@@ -150,6 +150,11 @@ export function MatchCard({ match, registration, confirmedCount = 0, onClick }: 
               +{spotsLeft} posti
             </span>
           )}
+          {match.status === 'open' && spotsLeft < 0 && (
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)' }}>
+              +{Math.abs(spotsLeft)} extra
+            </span>
+          )}
         </div>
 
         {/* My registration status */}

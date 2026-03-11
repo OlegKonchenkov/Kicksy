@@ -26,6 +26,15 @@ interface TeamResult {
 
 type NeverTogetherConstraint = { a: string; b: string }
 
+function getEffectiveFormatLabel(playerCount: number) {
+  if (playerCount >= 18) return '11v11'
+  if (playerCount >= 14) return '8v8'
+  if (playerCount >= 10) return '5v5'
+  const a = Math.floor(playerCount / 2)
+  const b = Math.ceil(playerCount / 2)
+  return `${a}v${b}`
+}
+
 export default function TeamsPage() {
   const params = useParams()
   const router = useRouter()
@@ -46,6 +55,7 @@ export default function TeamsPage() {
   const [team2Name, setTeam2Name] = useState('Squadra B')
   const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [effectiveFormat, setEffectiveFormat] = useState('')
 
   const playerMap = useMemo(
     () => Object.fromEntries(players.map((p) => [p.id, p])),
@@ -129,6 +139,7 @@ export default function TeamsPage() {
         setLoading(false)
         return
       }
+      setEffectiveFormat(getEffectiveFormatLabel(regs.length))
 
       const userIds = regs.map((r) => r.user_id)
       const { data: ratings } = await supabase
@@ -332,6 +343,11 @@ export default function TeamsPage() {
         <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
           {players.length} giocatori • {teamsResult.team1.length}vs{teamsResult.team2.length}
         </p>
+        {effectiveFormat && (
+          <p style={{ color: 'var(--color-text-3)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+            Formato effettivo: <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{effectiveFormat}</span>
+          </p>
+        )}
       </div>
 
       <div style={{ padding: '0.9rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

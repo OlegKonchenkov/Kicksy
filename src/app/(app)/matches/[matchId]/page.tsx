@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
+  adminRemoveRegistration,
   finalizePostMatchWindow,
   lockMatch,
   openMatch,
@@ -295,6 +296,16 @@ export default function MatchDetailPage() {
     })
   }
 
+  async function handleAdminRemoveRegistration(targetUserId: string, displayName: string) {
+    if (!confirm(`Rimuovere ${displayName} dalla partita?`)) return
+    startTransition(async () => {
+      const result = await adminRemoveRegistration(matchId, targetUserId)
+      if (result.error) { showToast(result.error, 'error'); return }
+      router.refresh()
+      showToast(`${displayName} rimosso dagli iscritti`, 'success')
+    })
+  }
+
   async function handleVoteMvp() {
     if (!selectedMvpUserId) return
     startTransition(async () => {
@@ -368,6 +379,7 @@ export default function MatchDetailPage() {
   const isPlayed = match.status === 'played'
   const confirmedCount = registrations.length
   const spotsLeft = match.max_players - confirmedCount
+  const overbookedCount = Math.max(0, confirmedCount - match.max_players)
   const pollClosesAt = mvpPoll?.closes_at ? new Date(mvpPoll.closes_at) : null
   const isMvpVoteOpen = !!(pollClosesAt && pollClosesAt.getTime() > Date.now())
   const canVoteMvp = isPlayed && myRegistration?.status === 'confirmed' && isMvpVoteOpen
@@ -583,7 +595,7 @@ export default function MatchDetailPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {isOpen && !myRegistration && (
             <Button onClick={handleRegister} loading={isPending} fullWidth size="lg">
-              {spotsLeft > 0 ? `Iscriviti (${spotsLeft} posti rimasti)` : 'Entra in lista attesa'}
+              {spotsLeft > 0 ? `Iscriviti (${spotsLeft} posti target)` : 'Iscriviti (lista extra aperta)'}
             </Button>
           )}
 
@@ -591,7 +603,7 @@ export default function MatchDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ padding: '0.875rem', background: 'rgba(200,255,107,0.08)', border: '1px solid rgba(200,255,107,0.3)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                  {myRegistration.status === 'confirmed' ? 'Sei iscritto' : 'Sei in lista attesa'}
+                  {myRegistration.status === 'confirmed' ? 'Sei iscritto' : 'Iscrizione registrata'}
                 </span>
               </div>
               <Button variant="ghost" onClick={handleUnregister} loading={isPending} fullWidth>
@@ -649,6 +661,11 @@ export default function MatchDetailPage() {
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)', marginBottom: '0.875rem' }}>
           Iscritti ({confirmedCount}/{match.max_players})
         </h2>
+        {overbookedCount > 0 && (
+          <p style={{ marginTop: '-0.5rem', marginBottom: '0.875rem', fontSize: '0.78rem', color: 'var(--color-primary)' }}>
+            +{overbookedCount} extra oltre il target: verranno comunque usati per generare le squadre finali.
+          </p>
+        )}
 
         {registrations.length === 0 ? (
           <div style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--color-border)' }}>
@@ -668,6 +685,29 @@ export default function MatchDetailPage() {
                 </div>
                 {reg.user_id === userId && (
                   <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-display)', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: 700 }}>Tu</span>
+                )}
+                {isAdmin && !isPlayed && reg.user_id !== userId && (
+                  <button
+                    type="button"
+                    onClick={() => handleAdminRemoveRegistration(reg.user_id, reg.profile.full_name ?? reg.profile.username)}
+                    disabled={isPending}
+                    style={{
+                      border: '1px solid rgba(239,68,68,0.35)',
+                      background: 'rgba(239,68,68,0.12)',
+                      color: 'var(--color-danger)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.68rem',
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      cursor: isPending ? 'not-allowed' : 'pointer',
+                      opacity: isPending ? 0.7 : 1,
+                    }}
+                  >
+                    Rimuovi
+                  </button>
                 )}
               </div>
             ))}

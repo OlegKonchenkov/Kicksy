@@ -191,21 +191,17 @@ export async function registerForMatch(matchId: string): Promise<AsyncResult<{ s
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: 'Not authenticated' }
 
-  // Check current confirmed count
-  const [matchRes, countRes] = await Promise.all([
-    supabase.from('matches').select('max_players, status').eq('id', matchId).single(),
-    supabase
-      .from('match_registrations')
-      .select('id', { count: 'exact', head: true })
-      .eq('match_id', matchId)
-      .eq('status', 'confirmed'),
-  ])
+  const { data: matchData, error: matchErr } = await supabase
+    .from('matches')
+    .select('status')
+    .eq('id', matchId)
+    .single()
 
-  if (matchRes.error) return { data: null, error: 'Partita non trovata' }
-  if (matchRes.data.status !== 'open') return { data: null, error: 'Le iscrizioni sono chiuse' }
+  if (matchErr || !matchData) return { data: null, error: 'Partita non trovata' }
+  if (matchData.status !== 'open') return { data: null, error: 'Le iscrizioni sono chiuse' }
 
-  const confirmedCount = countRes.count ?? 0
-  const status: MatchRegistration['status'] = confirmedCount < matchRes.data.max_players ? 'confirmed' : 'waitlist'
+  // Overbooking enabled: keep everyone confirmed while registrations are open.
+  const status: MatchRegistration['status'] = 'confirmed'
 
   // Upsert registration
   const { error } = await supabase
@@ -230,6 +226,54 @@ export async function unregisterFromMatch(matchId: string): Promise<AsyncResult<
 
   if (error) return { data: null, error: error.message }
   revalidatePath(`/matches/${matchId}`)
+  return { data: true, error: null }
+}
+
+export async function adminRemoveRegistration(
+  matchId: string,
+  targetUserId: string,
+): Promise<AsyncResult<true>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+  if (user.id === targetUserId) return { data: null, error: 'Usa "Cancella iscrizione" per te stesso' }
+
+  const { data: matchRow, error: matchErr } = await supabase
+    .from('matches')
+    .select('id, group_id, status')
+    .eq('id', matchId)
+    .single()
+
+  if (matchErr || !matchRow) return { data: null, error: 'Partita non trovata' }
+  if (matchRow.status === 'played') return { data: null, error: 'Non puoi modificare iscrizioni di una partita giocata' }
+
+  const { data: adminMember } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', matchRow.group_id)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (adminMember?.role !== 'admin') {
+    return { data: null, error: 'Solo gli admin possono rimuovere iscrizioni' }
+  }
+
+  const { error: deleteErr } = await supabase
+    .from('match_registrations')
+    .delete()
+    .eq('match_id', matchId)
+    .eq('user_id', targetUserId)
+
+  if (deleteErr) return { data: null, error: deleteErr.message }
+
+  // If teams were already generated, force a clean regenerate after roster changes.
+  await supabase.from('generated_teams').delete().eq('match_id', matchId)
+  await supabase.from('match_registrations').update({ team_id: null }).eq('match_id', matchId)
+
+  revalidatePath(`/matches/${matchId}`)
+  revalidatePath(`/groups/${matchRow.group_id}`)
+  revalidatePath(`/groups/${matchRow.group_id}/matches`)
   return { data: true, error: null }
 }
 
