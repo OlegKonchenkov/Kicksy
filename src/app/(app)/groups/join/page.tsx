@@ -1,21 +1,24 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Input } from '@/components/ui'
 
 export default function JoinGroupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const codeFromLink = (searchParams.get('code') ?? '').trim().toUpperCase()
   const [isPending, startTransition] = useTransition()
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(codeFromLink)
   const [error, setError] = useState<string | null>(null)
+  const [autoJoinTried, setAutoJoinTried] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function joinByCode(rawCode: string) {
     setError(null)
 
-    const trimmed = code.trim().toUpperCase()
+    const trimmed = rawCode.trim().toUpperCase()
     if (trimmed.length < 6) {
       setError('Inserisci un codice invito valido')
       return
@@ -24,7 +27,10 @@ export default function JoinGroupPage() {
     startTransition(async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      if (!user) {
+        router.replace(`/login?next=${encodeURIComponent(`/groups/join?code=${trimmed}`)}`)
+        return
+      }
 
       const { data: joinedGroupId, error: joinErr } = await supabase
         .rpc('join_group_by_invite_code', { p_invite_code: trimmed })
@@ -42,6 +48,18 @@ export default function JoinGroupPage() {
     })
   }
 
+  useEffect(() => {
+    setCode(codeFromLink)
+    if (!codeFromLink || autoJoinTried) return
+    setAutoJoinTried(true)
+    joinByCode(codeFromLink)
+  }, [codeFromLink, autoJoinTried])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    joinByCode(code)
+  }
+
   return (
     <div style={{ padding: '1.5rem 1rem' }}>
       <button type="button" onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', marginBottom: '1.5rem', padding: 0 }}>
@@ -52,7 +70,7 @@ export default function JoinGroupPage() {
         Unisciti
       </h1>
       <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginBottom: '2rem' }}>
-        Inserisci il codice invito del gruppo
+        Inserisci il codice invito del gruppo o apri un link invito ricevuto
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

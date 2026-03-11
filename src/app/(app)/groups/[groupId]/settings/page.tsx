@@ -60,6 +60,7 @@ export default function GroupSettingsPage() {
   const [groupAvatarUrl, setGroupAvatarUrl] = useState<string | null>(null)
   const [inviteEnabled, setInviteEnabled] = useState(true)
   const [inviteCode, setInviteCode] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [pollTemplates, setPollTemplates] = useState<Array<{
@@ -88,6 +89,7 @@ export default function GroupSettingsPage() {
       setGroupAvatarUrl(g.avatar_url ?? null)
       setInviteEnabled(g.invite_link_enabled)
       setInviteCode(g.invite_code)
+      setInviteLink(makeInviteLink(g.invite_code))
 
       const pollsRes = await getGroupPollTemplateSettings(groupId)
       if (pollsRes.data) setPollTemplates(pollsRes.data)
@@ -99,6 +101,12 @@ export default function GroupSettingsPage() {
     setSuccessMsg(msg)
     setActionError(null)
     setTimeout(() => setSuccessMsg(null), 3000)
+  }
+
+  const makeInviteLink = (code: string) => {
+    if (!code) return ''
+    if (typeof window === 'undefined') return `/groups/join?code=${encodeURIComponent(code)}`
+    return `${window.location.origin}/groups/join?code=${encodeURIComponent(code)}`
   }
 
   const handleSaveInfo = () => {
@@ -172,6 +180,7 @@ export default function GroupSettingsPage() {
       const res = await regenerateInviteCode(groupId)
       if (res.data) {
         setInviteCode(res.data)
+        setInviteLink(makeInviteLink(res.data))
         showSuccess('Codice rigenerato!')
       }
     })
@@ -180,6 +189,12 @@ export default function GroupSettingsPage() {
   const handleCopyCode = async () => {
     await navigator.clipboard.writeText(inviteCode)
     showSuccess('Codice copiato!')
+  }
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return
+    await navigator.clipboard.writeText(inviteLink)
+    showSuccess('Link invito copiato!')
   }
 
   const handleRemoveMember = (userId: string) => {
@@ -432,6 +447,19 @@ export default function GroupSettingsPage() {
             </button>
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--color-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+            <span style={{ fontSize: '0.8125rem', color: inviteEnabled ? 'var(--color-text-2)' : 'var(--color-text-3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {inviteLink}
+            </span>
+            <button
+              onClick={handleCopyInviteLink}
+              disabled={!inviteEnabled || !inviteLink}
+              style={{ padding: '0.375rem 0.75rem', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: inviteEnabled ? 'var(--color-text-2)' : 'var(--color-text-3)', cursor: inviteEnabled ? 'pointer' : 'default', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              Copia link
+            </button>
+          </div>
+
           <button
             onClick={handleRegenerateCode}
             disabled={isPending}
@@ -598,6 +626,7 @@ export default function GroupSettingsPage() {
     </div>
   )
 }
+
 
 
 
