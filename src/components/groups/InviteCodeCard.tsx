@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useToast } from '@/components/ui'
-import { Share2 } from 'lucide-react'
+import { Copy, Share2 } from 'lucide-react'
 
 type InviteCodeCardProps = {
   groupId: string
@@ -99,20 +99,22 @@ export function InviteCodeCard({ groupId, inviteCode, inviteEnabled }: InviteCod
         <button
           type="button"
           onClick={copyCode}
+          aria-label="Copia codice invito"
+          title="Copia codice invito"
           style={{
-            padding: '0.35rem 0.7rem',
+            width: 32,
+            height: 32,
             background: 'transparent',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)',
-            fontSize: '0.7rem',
             color: 'var(--color-text-2)',
             cursor: 'pointer',
-            fontFamily: 'var(--font-display)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          Copia codice
+          <Copy size={14} />
         </button>
 
         <button
