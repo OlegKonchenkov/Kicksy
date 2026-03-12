@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = ['/login', '/auth/callback', '/auth/callback-client', '/in
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
+  const isGroupRatingsPage = /^\/groups\/[^/]+\/ratings$/.test(pathname)
 
   // Let OAuth callbacks pass through untouched to avoid interfering with PKCE exchange.
   if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/callback-client')) {
@@ -71,6 +72,40 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/'
       return NextResponse.redirect(url)
+    }
+
+    // Gate: force self-rating completion (one per active group) before continuing app navigation.
+    if (user && !isPublic && !isGroupRatingsPage) {
+      const { data: membershipRows } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      const groupIds = (membershipRows ?? []).map((r) => r.group_id)
+
+      if (groupIds.length > 0) {
+        const { data: selfRatings } = await supabase
+          .from('player_ratings')
+          .select('group_id')
+          .eq('rater_id', user.id)
+          .eq('ratee_id', user.id)
+          .is('match_id', null)
+          .in('group_id', groupIds)
+
+        const ratedGroupIds = new Set((selfRatings ?? []).map((r) => r.group_id))
+        const missingGroupId = groupIds.find((gid) => !ratedGroupIds.has(gid))
+
+        if (missingGroupId) {
+          const url = request.nextUrl.clone()
+          url.pathname = `/groups/${missingGroupId}/ratings`
+          url.search = ''
+          url.searchParams.set('self', '1')
+          url.searchParams.set('first', '1')
+          url.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
+          return NextResponse.redirect(url)
+        }
+      }
     }
   } catch (err) {
     console.error('Middleware auth check failed', err)

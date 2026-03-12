@@ -104,7 +104,7 @@ function JoinGroupContent() {
       }
 
       router.replace(
-        `/groups/${joinedGroupId}/ratings?self=1&next=${encodeURIComponent(`/groups/${joinedGroupId}`)}`
+        `/groups/${joinedGroupId}/ratings?self=1&first=1&next=${encodeURIComponent(`/groups/${joinedGroupId}`)}`
       )
     })
   }
