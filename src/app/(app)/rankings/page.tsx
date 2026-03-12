@@ -16,6 +16,7 @@ interface RankingRow {
   total_points: number
   win_rate: number
   group_count: number
+  primary_group_id: string
 }
 
 export default async function RankingsPage() {
@@ -88,6 +89,7 @@ export default async function RankingsPage() {
     const profile = userMap[uid]
     const s = statsAgg[uid] ?? { played: 0, won: 0, drawn: 0, goals: 0, assists: 0, mvp: 0 }
     const points = Math.round(s.won * 3 + s.drawn * 1 + s.goals * 1 + s.assists * 0.5 + s.mvp * 2)
+    const primaryGroupId = myGroupIds.find((gid) => profile.groups.has(gid)) ?? myGroupIds[0]
     return {
       user_id: uid,
       username: profile.username,
@@ -101,6 +103,7 @@ export default async function RankingsPage() {
       total_points: points,
       win_rate: s.played > 0 ? Math.round((s.won / s.played) * 100) : 0,
       group_count: profile.groups.size,
+      primary_group_id: primaryGroupId,
     }
   })
 
@@ -172,8 +175,12 @@ export default async function RankingsPage() {
             const isMe = r.user_id === user.id
             const medal = medals[idx]
             return (
-              <div
+              <Link
                 key={r.user_id}
+                href={`/groups/${r.primary_group_id}/players/${r.user_id}`}
+                style={{ textDecoration: 'none', display: 'block' }}
+              >
+              <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '2rem 1fr 3rem 3rem 3rem 3rem',
@@ -212,6 +219,7 @@ export default async function RankingsPage() {
                   {r.total_points}
                 </div>
               </div>
+              </Link>
             )
           })}
         </div>
