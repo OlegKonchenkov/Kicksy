@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui'
+import { Input, LoadingScreen, LoadingSpinner } from '@/components/ui'
 
 export default function JoinGroupPage() {
   return (
@@ -371,11 +371,7 @@ function JoinGroupContent() {
 }
 
 function JoinGroupFallback() {
-  return (
-    <div className="min-h-dvh flex items-center justify-center px-5 py-12 grain">
-      <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem' }}>Caricamento...</p>
-    </div>
-  )
+  return <LoadingScreen label="Caricamento invito..." />
 }
 
 function isValidInviteCode(code: string) {
@@ -401,25 +397,6 @@ function GoogleIcon() {
         d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
         fill="#EA4335"
       />
-    </svg>
-  )
-}
-
-function LoadingSpinner() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      aria-hidden
-      style={{ animation: 'spin 0.8s linear infinite' }}
-    >
-      <style>{'@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }'}</style>
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
     </svg>
   )
 }
