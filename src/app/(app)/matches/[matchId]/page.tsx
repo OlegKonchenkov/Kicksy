@@ -17,6 +17,7 @@ import {
 } from '@/lib/actions/matches'
 import { Avatar, Button, MatchCard, PitchFormation, useToast } from '@/components/ui'
 import type { Match, MatchRegistration, MatchResult, RegistrationStatus } from '@/types'
+import { Share2 } from 'lucide-react'
 
 interface RegistrationWithProfile extends MatchRegistration {
   profile: { username: string; full_name: string | null; avatar_url: string | null }
@@ -424,22 +425,22 @@ export default function MatchDetailPage() {
         <button
           type="button"
           onClick={handleShareMatch}
+          aria-label="Condividi partita"
+          title="Condividi partita"
           style={{
             border: '1px solid var(--color-border)',
             background: 'var(--color-surface)',
             color: 'var(--color-text-2)',
             borderRadius: 'var(--radius-md)',
-            padding: '0.4rem 0.7rem',
-            fontSize: '0.7rem',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
+            width: 34,
+            height: 34,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             cursor: 'pointer',
-            whiteSpace: 'nowrap',
           }}
         >
-          Condividi
+          <Share2 size={15} />
         </button>
       </div>
 

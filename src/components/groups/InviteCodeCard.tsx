@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useToast } from '@/components/ui'
+import { Share2 } from 'lucide-react'
 
 type InviteCodeCardProps = {
   groupId: string
@@ -20,15 +21,6 @@ export function InviteCodeCard({ groupId, inviteCode, inviteEnabled }: InviteCod
   async function copyCode() {
     await navigator.clipboard.writeText(inviteCode)
     showToast('Codice invito copiato', 'success')
-  }
-
-  async function copyLink() {
-    if (!inviteEnabled) {
-      showToast('Link invito disattivato', 'error')
-      return
-    }
-    await navigator.clipboard.writeText(inviteLink)
-    showToast('Link invito copiato', 'success')
   }
 
   async function shareInvite() {
@@ -125,42 +117,24 @@ export function InviteCodeCard({ groupId, inviteCode, inviteEnabled }: InviteCod
 
         <button
           type="button"
-          onClick={copyLink}
-          disabled={!inviteEnabled}
-          style={{
-            padding: '0.35rem 0.7rem',
-            background: 'transparent',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '0.7rem',
-            color: inviteEnabled ? 'var(--color-text-2)' : 'var(--color-text-3)',
-            cursor: inviteEnabled ? 'pointer' : 'default',
-            fontFamily: 'var(--font-display)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          }}
-        >
-          Copia link
-        </button>
-
-        <button
-          type="button"
           onClick={shareInvite}
           disabled={!inviteEnabled}
+          aria-label="Condividi invito gruppo"
+          title="Condividi invito gruppo"
           style={{
-            padding: '0.35rem 0.7rem',
+            width: 32,
+            height: 32,
             background: 'transparent',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-sm)',
-            fontSize: '0.7rem',
             color: inviteEnabled ? 'var(--color-text-2)' : 'var(--color-text-3)',
             cursor: inviteEnabled ? 'pointer' : 'default',
-            fontFamily: 'var(--font-display)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          Condividi
+          <Share2 size={14} />
         </button>
       </div>
     </div>
