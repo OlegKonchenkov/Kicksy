@@ -46,7 +46,7 @@ export default function JoinGroupPage() {
         return
       }
 
-      router.replace(`/groups/${joinedGroupId}`)
+      router.replace(`/groups/${joinedGroupId}/ratings?self=1&next=${encodeURIComponent(`/groups/${joinedGroupId}`)}`)
     })
   }
 

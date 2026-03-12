@@ -24,6 +24,9 @@ export default function GroupRatingsPage() {
   const { showToast } = useToast()
   const groupId = params.groupId as string
   const selfOnly = searchParams.get('self') === '1'
+  const firstFlow = searchParams.get('first') === '1'
+  const nextParam = searchParams.get('next')
+  const nextPath = nextParam && nextParam.startsWith('/') ? nextParam : `/groups/${groupId}`
 
   const [loading, setLoading] = useState(true)
   const [members, setMembers] = useState<Member[]>([])
@@ -97,11 +100,18 @@ export default function GroupRatingsPage() {
       // If selfOnly, go directly to rating for self
       if (selfOnly) {
         const self = ordered.find(m => m.user_id === user.id)
-        if (self) { setSelectedPlayer(self); setView('rating') }
+        if (self) {
+          if (firstFlow && self.ratedAt) {
+            router.replace(nextPath)
+            return
+          }
+          setSelectedPlayer(self)
+          setView('rating')
+        }
       }
     }
     void load()
-  }, [groupId, router, selfOnly])
+  }, [firstFlow, groupId, nextPath, router, selfOnly])
 
   const unrated = useMemo(() => members.filter(m => !ratedIds.has(m.user_id)), [members, ratedIds])
   const rated = useMemo(() => members.filter(m => ratedIds.has(m.user_id) && m.user_id !== currentUserId), [members, ratedIds, currentUserId])
@@ -132,6 +142,10 @@ export default function GroupRatingsPage() {
       if (res.error) { showToast(res.error, 'error'); return }
       showToast('Valutazione salvata ✓', 'success')
       setRatedIds(prev => new Set([...prev, selectedPlayer.user_id]))
+      if (selfOnly) {
+        router.replace(nextPath)
+        return
+      }
       // Advance in sequential mode or return to list
       if (sequentialQueue.length > 0) {
         const nextId = sequentialQueue[0]
@@ -164,13 +178,15 @@ export default function GroupRatingsPage() {
 
     return (
       <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <button
-          type="button"
-          onClick={() => { setView('list'); setSelectedPlayer(null); setSequentialQueue([]) }}
-          style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}
-        >
-          ← Torna alla lista
-        </button>
+        {!(selfOnly && firstFlow) && (
+          <button
+            type="button"
+            onClick={() => { setView('list'); setSelectedPlayer(null); setSequentialQueue([]) }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}
+          >
+            ← Torna alla lista
+          </button>
+        )}
         <PlayerRatingForm
           player={selectedPlayer}
           initialSkills={selectedPlayer.existingSkills ?? undefined}
