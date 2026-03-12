@@ -1,19 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const nextParam = searchParams.get('next')
-  const oauthError = searchParams.get('error')
-  const oauthErrorDescription = searchParams.get('error_description')
-
-  const next = nextParam && nextParam.startsWith('/') ? nextParam : '/'
-  const redirectUrl = new URL('/auth/callback-client', origin)
-  if (code) redirectUrl.searchParams.set('code', code)
-  redirectUrl.searchParams.set('next', next)
-  if (oauthError) redirectUrl.searchParams.set('error', oauthError)
-  if (oauthErrorDescription) redirectUrl.searchParams.set('error_description', oauthErrorDescription)
-
+  const url = new URL(request.url)
+  // Preserve every OAuth query parameter (including state) for PKCE verification.
+  const redirectUrl = new URL(`/auth/callback-client${url.search}`, url.origin)
   return NextResponse.redirect(redirectUrl)
 }
-
