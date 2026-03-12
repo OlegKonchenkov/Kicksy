@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -283,7 +283,7 @@ export default function MatchDetailPage() {
       const result = await registerForMatch(matchId)
       if (result.error) { showToast(result.error, 'error'); return }
       router.refresh()
-      showToast('Iscrizione confermata! ⚽', 'success')
+      showToast('Iscrizione confermata! âš½', 'success')
     })
   }
 
@@ -312,7 +312,7 @@ export default function MatchDetailPage() {
       const result = await submitMvpVote(matchId, selectedMvpUserId)
       if (result.error) { showToast(result.error, 'error'); return }
       router.refresh()
-      showToast('Voto MVP inviato! ⭐', 'success')
+      showToast('Voto MVP inviato! â­', 'success')
     })
   }
 
@@ -321,7 +321,7 @@ export default function MatchDetailPage() {
       const result = await submitMatchComment(matchId, commentText)
       if (result.error) { showToast(result.error, 'error'); return }
       router.refresh()
-      showToast('Commento salvato +8 XP 📝', 'success')
+      showToast('Commento salvato +8 XP ðŸ“', 'success')
     })
   }
 
@@ -332,7 +332,7 @@ export default function MatchDetailPage() {
       const result = await submitPollVote(matchId, pollId, idx)
       if (result.error) { showToast(result.error, 'error'); return }
       router.refresh()
-      showToast('Voto inviato! ✅', 'success')
+      showToast('Voto inviato! âœ…', 'success')
     })
   }
 
@@ -342,6 +342,37 @@ export default function MatchDetailPage() {
     await finalizePostMatchWindow(matchId)
     setIsFinalizing(false)
     router.refresh()
+  }
+
+  async function handleShareMatch() {
+    const shareUrl = `${window.location.origin}/matches/${matchId}`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Kicksy - Partita',
+          text: 'Unisciti alla partita su Kicksy',
+          url: shareUrl,
+        })
+        return
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl)
+      } else {
+        const input = document.createElement('textarea')
+        input.value = shareUrl
+        input.style.position = 'fixed'
+        input.style.opacity = '0'
+        document.body.appendChild(input)
+        input.focus()
+        input.select()
+        document.execCommand('copy')
+        document.body.removeChild(input)
+      }
+      showToast('Link partita copiato', 'success')
+    } catch {
+      showToast('Condivisione non riuscita', 'error')
+    }
   }
 
   useEffect(() => {
@@ -367,7 +398,7 @@ export default function MatchDetailPage() {
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <p style={{ color: 'var(--color-danger)' }}>{error ?? 'Errore caricamento'}</p>
         <button onClick={() => router.back()} style={{ marginTop: '1rem', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer' }}>
-          ← Indietro
+          â† Indietro
         </button>
       </div>
     )
@@ -386,9 +417,31 @@ export default function MatchDetailPage() {
 
   return (
     <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}>
-        ← Indietro
-      </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', padding: 0, textAlign: 'left' }}>
+          ← Indietro
+        </button>
+        <button
+          type="button"
+          onClick={handleShareMatch}
+          style={{
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-surface)',
+            color: 'var(--color-text-2)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.4rem 0.7rem',
+            fontSize: '0.7rem',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Condividi
+        </button>
+      </div>
 
       <MatchCard match={match} registration={myRegistration} confirmedCount={confirmedCount} />
 
@@ -507,7 +560,7 @@ export default function MatchDetailPage() {
                               )}
                               {!isOpen || myVote !== undefined ? (
                                 <span style={{ color: myVote === idx ? 'var(--color-primary)' : 'var(--color-text-3)' }}>
-                                  {myVote === idx ? '✓' : '•'}
+                                  {myVote === idx ? 'âœ“' : 'â€¢'}
                                 </span>
                               ) : null}
                               {label}
@@ -559,7 +612,7 @@ export default function MatchDetailPage() {
               style={{ width: '100%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-1)', borderRadius: 'var(--radius-md)', padding: '0.7rem', fontSize: '0.86rem', resize: 'vertical' }}
             />
             <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-3)' }}>{commentText.trim().length}/20+ • +8 XP al primo commento</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-3)' }}>{commentText.trim().length}/20+ â€¢ +8 XP al primo commento</span>
               <Button type="button" size="sm" onClick={handleSaveComment} loading={isPending} disabled={commentText.trim().length < 20}>
                 Salva commento
               </Button>
@@ -639,7 +692,7 @@ export default function MatchDetailPage() {
                     Riapri
                   </Button>
                   <Link href={`/matches/${matchId}/teams`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
-                    {confirmedTeams ? 'Modifica Squadre ✏️' : 'Genera Squadre'}
+                    {confirmedTeams ? 'Modifica Squadre âœï¸' : 'Genera Squadre'}
                   </Link>
                   <Link href={`/matches/${matchId}/result`} style={{ display: 'inline-flex', alignItems: 'center', padding: '0.5rem 0.875rem', background: 'var(--color-elevated)', color: 'var(--color-text-1)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'none' }}>
                     Inserisci Risultato
@@ -717,3 +770,4 @@ export default function MatchDetailPage() {
     </div>
   )
 }
+

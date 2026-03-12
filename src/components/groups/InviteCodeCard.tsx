@@ -31,6 +31,29 @@ export function InviteCodeCard({ groupId, inviteCode, inviteEnabled }: InviteCod
     showToast('Link invito copiato', 'success')
   }
 
+  async function shareInvite() {
+    if (!inviteEnabled) {
+      showToast('Link invito disattivato', 'error')
+      return
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Kicksy - Invito gruppo',
+          text: `Unisciti al gruppo con codice ${inviteCode}`,
+          url: inviteLink,
+        })
+        return
+      }
+
+      await navigator.clipboard.writeText(inviteLink)
+      showToast('Link invito copiato', 'success')
+    } catch {
+      showToast('Condivisione non riuscita', 'error')
+    }
+  }
+
   return (
     <div
       style={{
@@ -119,8 +142,27 @@ export function InviteCodeCard({ groupId, inviteCode, inviteEnabled }: InviteCod
         >
           Copia link
         </button>
+
+        <button
+          type="button"
+          onClick={shareInvite}
+          disabled={!inviteEnabled}
+          style={{
+            padding: '0.35rem 0.7rem',
+            background: 'transparent',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.7rem',
+            color: inviteEnabled ? 'var(--color-text-2)' : 'var(--color-text-3)',
+            cursor: inviteEnabled ? 'pointer' : 'default',
+            fontFamily: 'var(--font-display)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Condividi
+        </button>
       </div>
     </div>
   )
 }
-
