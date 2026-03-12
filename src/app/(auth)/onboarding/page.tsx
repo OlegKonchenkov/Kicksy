@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
+import { createGroup } from '@/lib/actions/groups'
 
 type Step = 'profile' | 'group'
 type PlayerRole = 'D' | 'C' | 'E' | 'W' | 'A'
@@ -128,23 +129,14 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      // Create group
-      const { data: group, error: groupErr } = await supabase
-        .from('groups')
-        .insert({ name: groupName.trim(), created_by: user.id })
-        .select('id')
-        .single()
+      // Reuse central action to keep badge awarding logic consistent.
+      const result = await createGroup({ name: groupName.trim() })
+      if (result.error || !result.data?.id) {
+        setGroupError(result.error ?? 'Errore creazione gruppo')
+        return
+      }
 
-      if (groupErr) { setGroupError(groupErr.message); return }
-
-      // Add creator as admin
-      const { error: memberErr } = await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id, role: 'admin' })
-
-      if (memberErr) { setGroupError(memberErr.message); return }
-
-      router.replace(`/groups/${group.id}/ratings?self=1&first=1&next=${encodeURIComponent(`/groups/${group.id}`)}`)
+      router.replace(`/groups/${result.data.id}/ratings?self=1&first=1&next=${encodeURIComponent(`/groups/${result.data.id}`)}`)
     })
   }
 
