@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Input } from '@/components/ui'
@@ -14,6 +13,51 @@ export default function JoinGroupPage() {
   const [code, setCode] = useState(codeFromLink)
   const [error, setError] = useState<string | null>(null)
   const [autoJoinTried, setAutoJoinTried] = useState(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false)
+
+  useEffect(() => {
+    const ua = window.navigator.userAgent || ''
+    const inAppPattern = /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Telegram|Twitter|GSA|LinkedInApp/i
+    setIsInAppBrowser(inAppPattern.test(ua))
+  }, [])
+
+  useEffect(() => {
+    async function loadUser() {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setIsLoggedIn(Boolean(user))
+    }
+
+    void loadUser()
+  }, [])
+
+  async function startGoogleLogin(rawCode: string) {
+    const trimmed = rawCode.trim().toUpperCase()
+    if (trimmed.length < 6) {
+      setError('Inserisci un codice invito valido')
+      return
+    }
+
+    setError(null)
+    setIsSigningIn(true)
+
+    const supabase = createClient()
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/groups/join?code=${trimmed}`)}`,
+      },
+    })
+
+    if (signInError) {
+      setError(signInError.message)
+      setIsSigningIn(false)
+    }
+  }
 
   function joinByCode(rawCode: string) {
     setError(null)
@@ -26,14 +70,19 @@ export default function JoinGroupPage() {
 
     startTransition(async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       if (!user) {
-        router.replace(`/login?next=${encodeURIComponent(`/groups/join?code=${trimmed}`)}`)
+        setIsLoggedIn(false)
         return
       }
 
-      const { data: joinedGroupId, error: joinErr } = await supabase
-        .rpc('join_group_by_invite_code', { p_invite_code: trimmed })
+      const { data: joinedGroupId, error: joinErr } = await supabase.rpc(
+        'join_group_by_invite_code',
+        { p_invite_code: trimmed }
+      )
 
       if (joinErr || !joinedGroupId) {
         if (joinErr?.message.includes('invite_code_not_found')) {
@@ -46,53 +95,116 @@ export default function JoinGroupPage() {
         return
       }
 
-      router.replace(`/groups/${joinedGroupId}/ratings?self=1&next=${encodeURIComponent(`/groups/${joinedGroupId}`)}`)
+      router.replace(
+        `/groups/${joinedGroupId}/ratings?self=1&next=${encodeURIComponent(`/groups/${joinedGroupId}`)}`
+      )
     })
   }
 
   useEffect(() => {
     setCode(codeFromLink)
-    if (!codeFromLink || autoJoinTried) return
+    if (!codeFromLink || autoJoinTried || isLoggedIn !== true) return
     setAutoJoinTried(true)
     joinByCode(codeFromLink)
-  }, [codeFromLink, autoJoinTried])
+  }, [autoJoinTried, codeFromLink, isLoggedIn])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    joinByCode(code)
+
+    if (isLoggedIn) {
+      joinByCode(code)
+      return
+    }
+
+    await startGoogleLogin(code)
   }
 
   return (
     <div style={{ padding: '1.5rem 1rem' }}>
-      <button type="button" onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', fontSize: '0.875rem', marginBottom: '1.5rem', padding: 0 }}>
+      <button
+        type="button"
+        onClick={() => router.back()}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--color-text-3)',
+          cursor: 'pointer',
+          fontSize: '0.875rem',
+          marginBottom: '1.5rem',
+          padding: 0,
+        }}
+      >
         ← Indietro
       </button>
 
-      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)', marginBottom: '0.5rem' }}>
+      <h1
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: '1.75rem',
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+          color: 'var(--color-text-1)',
+          marginBottom: '0.5rem',
+        }}
+      >
         Unisciti
       </h1>
-      <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginBottom: '2rem' }}>
+      <p
+        style={{
+          color: 'var(--color-text-3)',
+          fontSize: '0.875rem',
+          marginBottom: '2rem',
+        }}
+      >
         Inserisci il codice invito del gruppo o apri un link invito ricevuto
       </p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+      >
         <Input
           label="Codice invito"
           placeholder="es. AB12CD34"
           value={code}
-          onChange={e => setCode(e.target.value.toUpperCase())}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
           maxLength={12}
           required
           autoFocus
         />
 
-        {error && <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{error}</p>}
+        {isInAppBrowser && isLoggedIn !== true && (
+          <div
+            style={{
+              padding: '0.875rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(255,184,0,0.08)',
+              border: '1px solid rgba(255,184,0,0.28)',
+              color: '#FFD166',
+              fontSize: '0.8125rem',
+              lineHeight: 1.6,
+            }}
+          >
+            Questo link sembra aperto dentro un&apos;app. Per evitare problemi col login Google,
+            aprilo in Chrome o Safari e poi continua.
+          </div>
+        )}
 
-        <Button type="submit" fullWidth loading={isPending} size="lg">
-          Unisciti al gruppo →
-        </Button>
+        {error && (
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{error}</p>
+        )}
+
+        {isLoggedIn ? (
+          <Button type="submit" fullWidth loading={isPending} size="lg">
+            Unisciti al gruppo →
+          </Button>
+        ) : (
+          <Button type="submit" fullWidth loading={isSigningIn} size="lg">
+            Continua con Google
+          </Button>
+        )}
       </form>
     </div>
   )
 }
-
