@@ -1,11 +1,19 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { Suspense, useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button, Input } from '@/components/ui'
 
 export default function JoinGroupPage() {
+  return (
+    <Suspense fallback={<JoinGroupFallback />}>
+      <JoinGroupContent />
+    </Suspense>
+  )
+}
+
+function JoinGroupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const codeFromLink = (searchParams.get('code') ?? '').trim().toUpperCase()
@@ -120,7 +128,7 @@ export default function JoinGroupPage() {
   }
 
   return (
-    <div style={{ padding: '1.5rem 1rem' }}>
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: 'calc(40px + env(safe-area-inset-top) + 0.5rem) 1rem 2rem' }}>
       <button
         type="button"
         onClick={() => router.back()}
@@ -205,6 +213,20 @@ export default function JoinGroupPage() {
           </Button>
         )}
       </form>
+    </div>
+  )
+}
+
+function JoinGroupFallback() {
+  return (
+    <div
+      style={{
+        maxWidth: 600,
+        margin: '0 auto',
+        padding: 'calc(40px + env(safe-area-inset-top) + 0.5rem) 1rem 2rem',
+      }}
+    >
+      <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem' }}>Caricamento...</p>
     </div>
   )
 }
