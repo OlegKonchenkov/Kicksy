@@ -19,6 +19,10 @@ interface RankingRow {
   primary_group_id: string
 }
 
+function formatPoints(points: number): string {
+  return Number.isInteger(points) ? String(points) : points.toFixed(1)
+}
+
 export default async function RankingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -88,7 +92,7 @@ export default async function RankingsPage() {
   const rankings: RankingRow[] = allUserIds.map(uid => {
     const profile = userMap[uid]
     const s = statsAgg[uid] ?? { played: 0, won: 0, drawn: 0, goals: 0, assists: 0, mvp: 0 }
-    const points = Math.round(s.won * 3 + s.drawn * 1 + s.goals * 1 + s.assists * 0.5 + s.mvp * 2)
+    const points = s.won * 3 + s.drawn * 1 + s.goals * 1 + s.assists * 0.5 + s.mvp * 2
     const primaryGroupId = myGroupIds.find((gid) => profile.groups.has(gid)) ?? myGroupIds[0]
     return {
       user_id: uid,
@@ -134,7 +138,7 @@ export default async function RankingsPage() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>La tua posizione</div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-1)', marginTop: '0.125rem' }}>
-              {rankings[myRank].total_points} punti
+              {formatPoints(rankings[myRank].total_points)} punti
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -216,7 +220,7 @@ export default async function RankingsPage() {
                 ))}
 
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', fontWeight: 800, color: isMe ? 'var(--color-primary)' : 'var(--color-text-1)', textAlign: 'center' }}>
-                  {r.total_points}
+                  {formatPoints(r.total_points)}
                 </div>
               </div>
               </Link>

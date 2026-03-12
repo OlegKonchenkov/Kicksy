@@ -130,6 +130,9 @@ export type PlayerStats = {
   matches_lost: number
   goals_scored: number
   assists: number
+  current_win_streak: number
+  win_streak: number
+  invites_sent: number
   clean_sheets: number
   mvp_count: number
   ratings_given: number
@@ -444,6 +447,9 @@ export type Database = {
           matches_lost?: number
           goals_scored?: number
           assists?: number
+          current_win_streak?: number
+          win_streak?: number
+          invites_sent?: number
           clean_sheets?: number
           mvp_count?: number
           ratings_given?: number
@@ -456,6 +462,9 @@ export type Database = {
           matches_lost?: number
           goals_scored?: number
           assists?: number
+          current_win_streak?: number
+          win_streak?: number
+          invites_sent?: number
           clean_sheets?: number
           mvp_count?: number
           ratings_given?: number

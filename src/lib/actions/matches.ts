@@ -651,6 +651,13 @@ export async function submitMatchResult(matchId: string, data: {
     return 'participation'
   }
 
+  function hasCleanSheet(userId: string): boolean {
+    if (!teams) return false
+    if (team1Ids.has(userId)) return s2 === 0
+    if (team2Ids.has(userId)) return s1 === 0
+    return false
+  }
+
   // 5. Award XP + update player_stats for each participant
   const profileUpdates: Promise<unknown>[] = []
 
@@ -678,19 +685,28 @@ export async function submitMatchResult(matchId: string, data: {
           p_mvp:         isMVP ? 1 : 0,
           p_xp:          xpGain,
         }).catch(() => {
-          // Fallback: manual upsert if RPC not available
-          return supabase
-            .from('player_stats')
-            .upsert({
-              user_id:       uid,
-              group_id:      groupId,
-              matches_played: 1,
-              matches_won:   isWin  ? 1 : 0,
-              matches_drawn: isDraw_ ? 1 : 0,
-              matches_lost:  isLoss ? 1 : 0,
-              mvp_count:     isMVP ? 1 : 0,
-              xp_from_matches: xpGain,
-            }, { onConflict: 'user_id,group_id', ignoreDuplicates: false })
+          // Fallback: read-then-increment if RPC not available
+          return (async () => {
+            const { data: current } = await supabase
+              .from('player_stats')
+              .select('matches_played, matches_won, matches_drawn, matches_lost, mvp_count, xp_from_matches')
+              .eq('user_id', uid)
+              .eq('group_id', groupId)
+              .maybeSingle()
+
+            return supabase
+              .from('player_stats')
+              .upsert({
+                user_id: uid,
+                group_id: groupId,
+                matches_played: (current?.matches_played ?? 0) + 1,
+                matches_won: (current?.matches_won ?? 0) + (isWin ? 1 : 0),
+                matches_drawn: (current?.matches_drawn ?? 0) + (isDraw_ ? 1 : 0),
+                matches_lost: (current?.matches_lost ?? 0) + (isLoss ? 1 : 0),
+                mvp_count: (current?.mvp_count ?? 0) + (isMVP ? 1 : 0),
+                xp_from_matches: (current?.xp_from_matches ?? 0) + xpGain,
+              }, { onConflict: 'user_id,group_id', ignoreDuplicates: false })
+          })()
         })
       )
     }
@@ -717,26 +733,34 @@ export async function submitMatchResult(matchId: string, data: {
 
   await Promise.allSettled(profileUpdates)
 
-  // Award badges for all confirmed players after stats update
-  if (groupId) {
-    try {
-      const adminForBadges = await createAdminClient()
-      const confirmedIds = registrations.map((r) => r.user_id)
-      await Promise.all(
-        confirmedIds.map(async (uid) => {
-          const { data: freshStats } = await adminForBadges
-            .from('player_stats')
-            .select('matches_played, matches_won, goals_scored, assists, mvp_count, clean_sheets')
-            .eq('user_id', uid)
-            .eq('group_id', groupId)
-            .maybeSingle()
-          if (freshStats) {
-            await awardBadgesIfEarned(adminForBadges, uid, groupId, freshStats)
-          }
-        })
-      )
-    } catch {
-      // Non-critical
+  // Clean sheets are tracked separately after result is known.
+  if (groupId && teams) {
+    const cleanSheetUserIds = registrations
+      .map((r) => r.user_id)
+      .filter((uid) => hasCleanSheet(uid))
+
+    if (cleanSheetUserIds.length > 0) {
+      const updates = cleanSheetUserIds.map(async (uid) => {
+        const { data: current } = await supabase
+          .from('player_stats')
+          .select('clean_sheets')
+          .eq('user_id', uid)
+          .eq('group_id', groupId)
+          .maybeSingle()
+
+        return supabase
+          .from('player_stats')
+          .upsert(
+            {
+              user_id: uid,
+              group_id: groupId,
+              clean_sheets: (current?.clean_sheets ?? 0) + 1,
+            },
+            { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+          )
+      })
+
+      await Promise.allSettled(updates)
     }
   }
 
@@ -797,6 +821,64 @@ export async function submitMatchResult(matchId: string, data: {
         groupId,
         Array.from(new Set(statsPayload.map((p) => p.user_id))),
       )
+    }
+  }
+
+  // Win streak tracking: keep both current and best streak (win_streak).
+  if (groupId) {
+    const streakUpdates = registrations.map(async (reg) => {
+      const uid = reg.user_id
+      const outcome = getOutcome(uid)
+      const isWin = outcome === 'win'
+
+      const { data: current } = await supabase
+        .from('player_stats')
+        .select('current_win_streak, win_streak')
+        .eq('user_id', uid)
+        .eq('group_id', groupId)
+        .maybeSingle()
+
+      const currentStreak = current?.current_win_streak ?? 0
+      const bestStreak = current?.win_streak ?? 0
+      const nextCurrentStreak = isWin ? currentStreak + 1 : 0
+      const nextBestStreak = Math.max(bestStreak, nextCurrentStreak)
+
+      await supabase
+        .from('player_stats')
+        .upsert(
+          {
+            user_id: uid,
+            group_id: groupId,
+            current_win_streak: nextCurrentStreak,
+            win_streak: nextBestStreak,
+          },
+          { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+        )
+    })
+
+    await Promise.allSettled(streakUpdates)
+  }
+
+  // Award badges for all confirmed players after all stats mutations
+  if (groupId) {
+    try {
+      const adminForBadges = await createAdminClient()
+      const confirmedIds = registrations.map((r) => r.user_id)
+      await Promise.all(
+        confirmedIds.map(async (uid) => {
+          const { data: freshStats } = await adminForBadges
+            .from('player_stats')
+            .select('matches_played, matches_won, win_streak, goals_scored, assists, mvp_count, clean_sheets, ratings_given')
+            .eq('user_id', uid)
+            .eq('group_id', groupId)
+            .maybeSingle()
+          if (freshStats) {
+            await awardBadgesIfEarned(adminForBadges, uid, groupId, freshStats)
+          }
+        }),
+      )
+    } catch {
+      // Non-critical
     }
   }
 
@@ -1014,6 +1096,7 @@ export async function submitMatchComment(matchId: string, comment: string): Prom
 async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, stats: {
   matches_played?: number
   matches_won?: number
+  win_streak?: number
   goals_scored?: number
   assists?: number
   mvp_count?: number
@@ -1024,6 +1107,7 @@ async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, 
     const conditionTypes: string[] = []
     if (stats.matches_played !== undefined) conditionTypes.push('matches_played')
     if (stats.matches_won !== undefined) conditionTypes.push('matches_won')
+    if (stats.win_streak !== undefined) conditionTypes.push('win_streak')
     if (stats.goals_scored !== undefined) conditionTypes.push('goals_scored')
     if (stats.assists !== undefined) conditionTypes.push('assists')
     if (stats.mvp_count !== undefined) conditionTypes.push('mvp_count')
@@ -1086,7 +1170,7 @@ async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, 
           type: 'badge_earned',
           title: `${b.icon} Badge sbloccato!`,
           body: b.name_it,
-          is_read: false,
+          read: false,
         }))
       )
     }
@@ -1178,7 +1262,7 @@ export async function finalizePostMatchWindow(matchId: string): Promise<AsyncRes
         // Award MVP milestone badges
         const { data: mvpUpdatedStats } = await admin
           .from('player_stats')
-          .select('matches_played, matches_won, goals_scored, assists, mvp_count, clean_sheets')
+          .select('matches_played, matches_won, win_streak, goals_scored, assists, mvp_count, clean_sheets, ratings_given')
           .eq('user_id', winnerId)
           .eq('group_id', matchData.group_id)
           .maybeSingle()

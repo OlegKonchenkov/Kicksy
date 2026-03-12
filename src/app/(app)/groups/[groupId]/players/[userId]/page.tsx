@@ -205,7 +205,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
   const hasBadges = badgeRows.length > 0
   const isEmpty = !hasStats && !hasRatings && !hasBadges
 
-  const isCurrentUserAdmin = viewerMember.role === 'admin'
+  const isTargetUserAdmin = targetMember.role === 'admin'
 
   function relativeTime(iso: string) {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
@@ -296,7 +296,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
         ovr={ovr}
         skillBars={fifaSkillBars}
         isMe={isMe}
-        isAdmin={isCurrentUserAdmin}
+        isAdmin={isTargetUserAdmin}
       />
 
       {/* Empty state */}

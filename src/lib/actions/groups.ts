@@ -350,8 +350,42 @@ export async function createGroup(input: {
         type: 'badge_earned',
         title: '🏗️ Badge sbloccato!',
         body: 'Fondatore',
-        is_read: false,
+        read: false,
       })
+    }
+
+    // Award early_adopter once (global one-time semantic, stored on first group context).
+    const { data: earlyBadge } = await admin
+      .from('badges')
+      .select('id, name_it, icon')
+      .eq('condition_type', 'early_adopter')
+      .lte('condition_value', 1)
+      .order('condition_value', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (earlyBadge) {
+      const { data: alreadyEarly } = await admin
+        .from('player_badges')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('badge_id', earlyBadge.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (!alreadyEarly) {
+        await admin.from('player_badges').upsert(
+          { user_id: user.id, badge_id: earlyBadge.id, group_id: newGroupId, equipped: false },
+          { onConflict: 'user_id,badge_id,group_id', ignoreDuplicates: true }
+        )
+        await admin.from('notifications').insert({
+          user_id: user.id,
+          type: 'badge_earned',
+          title: `${earlyBadge.icon ?? '🏅'} Badge sbloccato!`,
+          body: earlyBadge.name_it ?? 'Nuovo badge',
+          read: false,
+        })
+      }
     }
   } catch { /* non-critical */ }
 

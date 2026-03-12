@@ -22,6 +22,10 @@ interface RankingRow {
   points: number
 }
 
+function formatPoints(points: number): string {
+  return Number.isInteger(points) ? String(points) : points.toFixed(1)
+}
+
 export default async function GroupRankingsPage({ params }: PageProps) {
   const { groupId } = await params
   const supabase = await createClient()
@@ -80,7 +84,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
     const goals = stats?.goals_scored ?? 0
     const assists = stats?.assists ?? 0
     const mvp = stats?.mvp_count ?? 0
-    const points = Math.round(won * 3 + drawn * 1 + goals * 1 + assists * 0.5 + mvp * 2)
+    const points = won * 3 + drawn * 1 + goals * 1 + assists * 0.5 + mvp * 2
 
     return {
       user_id: m.user_id,
@@ -130,7 +134,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
               {rankings[1].full_name?.split(' ')[0] ?? rankings[1].username}
             </div>
             <div style={{ width: '100%', height: 56, background: 'rgba(192,192,192,0.15)', border: '1px solid rgba(192,192,192,0.3)', borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: '#c0c0c0' }}>
-              {rankings[1].points}pt
+              {formatPoints(rankings[1].points)}pt
             </div>
           </div>
           {/* 1st */}
@@ -143,7 +147,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
               {rankings[0].full_name?.split(' ')[0] ?? rankings[0].username}
             </div>
             <div style={{ width: '100%', height: 80, background: 'rgba(200,255,107,0.12)', border: '1px solid rgba(200,255,107,0.3)', borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-              {rankings[0].points}pt
+              {formatPoints(rankings[0].points)}pt
             </div>
           </div>
           {/* 3rd */}
@@ -154,7 +158,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
               {rankings[2].full_name?.split(' ')[0] ?? rankings[2].username}
             </div>
             <div style={{ width: '100%', height: 44, background: 'rgba(205,127,50,0.12)', border: '1px solid rgba(205,127,50,0.3)', borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', fontWeight: 700, color: '#cd7f32' }}>
-              {rankings[2].points}pt
+              {formatPoints(rankings[2].points)}pt
             </div>
           </div>
         </div>
@@ -225,7 +229,7 @@ export default async function GroupRankingsPage({ params }: PageProps) {
 
                 {/* Points */}
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', fontWeight: 800, color: isMe ? 'var(--color-primary)' : 'var(--color-text-1)', textAlign: 'center' }}>
-                  {r.points}
+                  {formatPoints(r.points)}
                 </div>
               </div>
               </Link>
