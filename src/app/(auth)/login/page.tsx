@@ -18,9 +18,10 @@ function LoginPageContent() {
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/'
   const errorFromUrl = searchParams.get('error')
+  const reasonFromUrl = searchParams.get('reason')
   const errorMessage = error ?? (
     errorFromUrl === 'auth_callback_failed'
-      ? 'Accesso Google non completato. Riprova.'
+      ? (reasonFromUrl ? `Accesso Google non completato: ${reasonFromUrl}` : 'Accesso Google non completato. Riprova.')
       : errorFromUrl === 'auth_unavailable'
         ? 'Autenticazione momentaneamente non disponibile.'
         : errorFromUrl === 'supabase_env_missing'

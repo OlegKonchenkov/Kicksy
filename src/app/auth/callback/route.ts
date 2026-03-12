@@ -1,39 +1,19 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
-import { getSupabasePublicConfigOrThrow } from '@/lib/supabase/env'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const nextParam = searchParams.get('next')
+  const oauthError = searchParams.get('error')
+  const oauthErrorDescription = searchParams.get('error_description')
+
   const next = nextParam && nextParam.startsWith('/') ? nextParam : '/'
+  const redirectUrl = new URL('/auth/callback-client', origin)
+  if (code) redirectUrl.searchParams.set('code', code)
+  redirectUrl.searchParams.set('next', next)
+  if (oauthError) redirectUrl.searchParams.set('error', oauthError)
+  if (oauthErrorDescription) redirectUrl.searchParams.set('error_description', oauthErrorDescription)
 
-  if (code) {
-    const cookieStore = await cookies()
-    const { url, key } = getSupabasePublicConfigOrThrow()
-    const supabase = createServerClient(
-      url,
-      key,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          },
-        },
-      }
-    )
-
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
-    }
-  }
-
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+  return NextResponse.redirect(redirectUrl)
 }
+
