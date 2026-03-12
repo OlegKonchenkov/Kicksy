@@ -132,6 +132,7 @@ export type PlayerStats = {
   assists: number
   clean_sheets: number
   mvp_count: number
+  ratings_given: number
   xp_from_matches: number
   updated_at: string
   created_at: string
@@ -445,6 +446,7 @@ export type Database = {
           assists?: number
           clean_sheets?: number
           mvp_count?: number
+          ratings_given?: number
           xp_from_matches?: number
         }
         Update: {
@@ -456,6 +458,7 @@ export type Database = {
           assists?: number
           clean_sheets?: number
           mvp_count?: number
+          ratings_given?: number
           xp_from_matches?: number
           updated_at?: string
         }

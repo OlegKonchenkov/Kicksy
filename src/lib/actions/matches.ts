@@ -1018,6 +1018,7 @@ async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, 
   assists?: number
   mvp_count?: number
   clean_sheets?: number
+  ratings_given?: number
 }): Promise<void> {
   try {
     const conditionTypes: string[] = []
@@ -1027,6 +1028,7 @@ async function awardBadgesIfEarned(admin: any, userId: string, groupId: string, 
     if (stats.assists !== undefined) conditionTypes.push('assists')
     if (stats.mvp_count !== undefined) conditionTypes.push('mvp_count')
     if (stats.clean_sheets !== undefined) conditionTypes.push('clean_sheets')
+    if (stats.ratings_given !== undefined) conditionTypes.push('ratings_given')
 
     if (conditionTypes.length === 0) return
 
@@ -1335,6 +1337,36 @@ export async function submitRatings(
     .upsert(inserts, { onConflict: 'rater_id,ratee_id,match_id', ignoreDuplicates: false })
 
   if (error) return { data: null, error: error.message }
+
+  if (newlyRatedCount > 0) {
+    const { data: currentStats } = await supabase
+      .from('player_stats')
+      .select('ratings_given')
+      .eq('user_id', user.id)
+      .eq('group_id', groupId)
+      .maybeSingle()
+
+    const updatedRatingsGiven = (currentStats?.ratings_given ?? 0) + newlyRatedCount
+    await supabase
+      .from('player_stats')
+      .upsert(
+        {
+          user_id: user.id,
+          group_id: groupId,
+          ratings_given: updatedRatingsGiven,
+        },
+        { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+      )
+
+    // Badge assignment requires elevated privileges due current RLS on player_badges.
+    try {
+      const admin = await createAdminClient()
+      await awardBadgesIfEarned(admin, user.id, groupId, { ratings_given: updatedRatingsGiven })
+    } catch {
+      // Non-critical: rating save and XP must still succeed.
+    }
+  }
+
   await awardProfileXP(user.id, newlyRatedCount * XP_PER_PEER_RATING)
   revalidatePath(`/matches/${matchId}`)
   revalidatePath('/profile')
@@ -1375,6 +1407,36 @@ export async function submitGroupRatings(
     .upsert(inserts, { onConflict: 'rater_id,ratee_id,group_id,match_id', ignoreDuplicates: false })
 
   if (error) return { data: null, error: error.message }
+
+  if (newlyRatedCount > 0) {
+    const { data: currentStats } = await supabase
+      .from('player_stats')
+      .select('ratings_given')
+      .eq('user_id', user.id)
+      .eq('group_id', groupId)
+      .maybeSingle()
+
+    const updatedRatingsGiven = (currentStats?.ratings_given ?? 0) + newlyRatedCount
+    await supabase
+      .from('player_stats')
+      .upsert(
+        {
+          user_id: user.id,
+          group_id: groupId,
+          ratings_given: updatedRatingsGiven,
+        },
+        { onConflict: 'user_id,group_id', ignoreDuplicates: false },
+      )
+
+    // Badge assignment requires elevated privileges due current RLS on player_badges.
+    try {
+      const admin = await createAdminClient()
+      await awardBadgesIfEarned(admin, user.id, groupId, { ratings_given: updatedRatingsGiven })
+    } catch {
+      // Non-critical: rating save and XP must still succeed.
+    }
+  }
+
   await awardProfileXP(user.id, newlyRatedCount * XP_PER_PEER_RATING)
   revalidatePath(`/groups/${groupId}/ratings`)
   revalidatePath(`/groups/${groupId}`)
