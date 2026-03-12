@@ -8,8 +8,8 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
 
-  // Let OAuth callback pass through untouched to avoid interfering with PKCE exchange.
-  if (pathname.startsWith('/auth/callback')) {
+  // Let OAuth callbacks pass through untouched to avoid interfering with PKCE exchange.
+  if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/callback-client')) {
     return NextResponse.next({ request })
   }
 
