@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { Badge, BadgeTier, PlayerBadge } from '@/types'
 
 export type BadgeShowcaseProps = {
@@ -33,12 +33,40 @@ function badgeHint(badge: Badge): string {
   }
 }
 
-function EarnedBadgeItem({ pb }: { pb: PlayerBadge & { badge: Badge } }) {
+type SelectedBadge = {
+  badge: Badge
+  earned: boolean
+  equipped?: boolean
+  earnedAt?: string
+}
+
+function EarnedBadgeItem({
+  pb,
+  onOpen,
+}: {
+  pb: PlayerBadge & { badge: Badge }
+  onOpen: (payload: SelectedBadge) => void
+}) {
   const { badge } = pb
   const tier = TIER_CONFIG[badge.tier]
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
-      <div style={{
+    <button
+      type="button"
+      onClick={() => onOpen({ badge, earned: true, equipped: pb.equipped, earnedAt: pb.earned_at })}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.3rem',
+        border: 'none',
+        background: 'none',
+        padding: 0,
+        cursor: 'pointer',
+      }}
+      aria-label={`Apri badge ${badge.name_it}`}
+    >
+      <div
+        style={{
         width: 48, height: 48, borderRadius: '50%',
         background: tier.bg,
         border: `2px solid ${pb.equipped ? tier.color : 'var(--color-border)'}`,
@@ -47,7 +75,8 @@ function EarnedBadgeItem({ pb }: { pb: PlayerBadge & { badge: Badge } }) {
         boxShadow: pb.equipped ? `0 0 14px ${tier.glow}` : 'none',
         position: 'relative',
         transition: 'all 0.2s',
-      }}>
+      }}
+      >
         {badge.icon}
         {pb.equipped && (
           <div style={{
@@ -67,16 +96,33 @@ function EarnedBadgeItem({ pb }: { pb: PlayerBadge & { badge: Badge } }) {
         textAlign: 'center',
         maxWidth: 52,
         lineHeight: 1.2,
-      }}>{badge.name_it}</span>
-    </div>
+      }}
+      >
+        {badge.name_it}
+      </span>
+    </button>
   )
 }
 
-function LockedBadgeItem({ badge }: { badge: Badge }) {
+function LockedBadgeItem({ badge, onOpen }: { badge: Badge; onOpen: (payload: SelectedBadge) => void }) {
   const tier = TIER_CONFIG[badge.tier]
   const hint = badgeHint(badge)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
+    <button
+      type="button"
+      onClick={() => onOpen({ badge, earned: false })}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.3rem',
+        border: 'none',
+        background: 'none',
+        padding: 0,
+        cursor: 'pointer',
+      }}
+      aria-label={`Apri badge ${badge.name_it}`}
+    >
       {/* wrapper for relative positioning of the lock overlay */}
       <div style={{ position: 'relative' }}>
         <div style={{
@@ -110,7 +156,9 @@ function LockedBadgeItem({ badge }: { badge: Badge }) {
         textAlign: 'center',
         maxWidth: 52,
         lineHeight: 1.2,
-      }}>{badge.name_it}</span>
+      }}>
+        {badge.name_it}
+      </span>
       {hint && (
         <span style={{
           fontSize: '0.55rem',
@@ -119,15 +167,37 @@ function LockedBadgeItem({ badge }: { badge: Badge }) {
           textAlign: 'center',
           maxWidth: 52,
           lineHeight: 1.2,
-        }}>{hint}</span>
+        }}>
+          {hint}
+        </span>
       )}
-    </div>
+    </button>
   )
 }
 
 export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
+  const [selected, setSelected] = useState<SelectedBadge | null>(null)
   const earnedKeys = new Set(earnedBadges.map(pb => pb.badge.key))
   const lockedBadges = allBadges.filter(b => !earnedKeys.has(b.key))
+  const allBadgesByKey = useMemo(
+    () => new Map(allBadges.map((b) => [b.key, b])),
+    [allBadges],
+  )
+
+  useEffect(() => {
+    if (!selected) return
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSelected(null)
+    }
+    window.addEventListener('keydown', onEscape)
+    return () => window.removeEventListener('keydown', onEscape)
+  }, [selected])
+
+  const selectedBadge = selected
+    ? (allBadgesByKey.get(selected.badge.key) ?? selected.badge)
+    : null
+  const selectedTier = selectedBadge ? TIER_CONFIG[selectedBadge.tier] : null
+  const selectedHint = selectedBadge ? badgeHint(selectedBadge) : ''
 
   const sectionLabel: CSSProperties = {
     fontFamily: 'var(--font-display)',
@@ -152,7 +222,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
         <div>
           <div style={sectionLabel}>✅ Sbloccati ({earnedBadges.length})</div>
           <div style={grid}>
-            {earnedBadges.map(pb => <EarnedBadgeItem key={pb.id} pb={pb} />)}
+            {earnedBadges.map(pb => <EarnedBadgeItem key={pb.id} pb={pb} onOpen={setSelected} />)}
           </div>
         </div>
       )}
@@ -161,7 +231,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
         <div>
           <div style={sectionLabel}>🔒 Da sbloccare ({lockedBadges.length})</div>
           <div style={grid}>
-            {lockedBadges.map(b => <LockedBadgeItem key={b.id} badge={b} />)}
+            {lockedBadges.map(b => <LockedBadgeItem key={b.id} badge={b} onOpen={setSelected} />)}
           </div>
         </div>
       )}
@@ -169,6 +239,130 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
       {earnedBadges.length === 0 && allBadges.length === 0 && (
         <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--color-text-3)', fontSize: '0.875rem' }}>
           Nessun badge disponibile.
+        </div>
+      )}
+
+      {selected && selectedBadge && selectedTier && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelected(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            background: 'rgba(2, 6, 23, 0.76)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            animation: 'fadeIn 180ms ease',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              borderRadius: 'var(--radius-xl)',
+              border: `1px solid ${selectedTier.color}55`,
+              background: 'linear-gradient(180deg, rgba(16,24,40,0.98), rgba(8,12,20,0.98))',
+              boxShadow: `0 16px 48px ${selectedTier.glow}`,
+              padding: '1rem 1rem 1.125rem',
+              transform: 'translateY(0) scale(1)',
+              animation: 'popIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
+            `}</style>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: selectedTier.color,
+                }}
+              >
+                {selectedBadge.tier}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                style={{
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-elevated)',
+                  color: 'var(--color-text-2)',
+                  borderRadius: 999,
+                  width: 28,
+                  height: 28,
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                }}
+                aria-label="Chiudi dettaglio badge"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+              <div
+                style={{
+                  width: 62,
+                  height: 62,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.75rem',
+                  background: selected.earned ? selectedTier.bg : 'var(--color-elevated)',
+                  border: `2px solid ${selected.earned ? selectedTier.color : 'var(--color-border)'}`,
+                  filter: selected.earned ? 'none' : 'grayscale(0.85)',
+                  opacity: selected.earned ? 1 : 0.65,
+                }}
+              >
+                {selectedBadge.icon}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    color: 'var(--color-text-1)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  {selectedBadge.name_it}
+                </div>
+                <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: selected.earned ? 'var(--color-success)' : 'var(--color-text-3)' }}>
+                  {selected.earned ? 'Sbloccato' : `Da sbloccare${selectedHint ? ` · ${selectedHint}` : ''}`}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: '0.9rem',
+                padding: '0.8rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                background: 'rgba(15, 23, 42, 0.5)',
+                color: 'var(--color-text-2)',
+                fontSize: '0.85rem',
+                lineHeight: 1.6,
+              }}
+            >
+              {selectedBadge.description_it || selectedBadge.description_en || 'Nessuna descrizione disponibile.'}
+            </div>
+          </div>
         </div>
       )}
     </div>
