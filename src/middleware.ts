@@ -8,6 +8,11 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
 
+  // Let OAuth callback pass through untouched to avoid interfering with PKCE exchange.
+  if (pathname.startsWith('/auth/callback')) {
+    return NextResponse.next({ request })
+  }
+
   const supabaseUrl = getSupabaseUrl()
   const supabaseKey = getSupabasePublishableKey()
 
@@ -53,11 +58,16 @@ export async function middleware(request: NextRequest) {
     if (!user && !isPublic) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      url.searchParams.set('next', pathname)
+      const nextPath = `${pathname}${request.nextUrl.search}`
+      url.searchParams.set('next', nextPath)
       return NextResponse.redirect(url)
     }
 
     if (user && pathname === '/login') {
+      const next = request.nextUrl.searchParams.get('next')
+      if (next && next.startsWith('/')) {
+        return NextResponse.redirect(new URL(next, request.url))
+      }
       const url = request.nextUrl.clone()
       url.pathname = '/'
       return NextResponse.redirect(url)

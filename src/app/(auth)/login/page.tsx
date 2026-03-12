@@ -17,6 +17,16 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/'
+  const errorFromUrl = searchParams.get('error')
+  const errorMessage = error ?? (
+    errorFromUrl === 'auth_callback_failed'
+      ? 'Accesso Google non completato. Riprova.'
+      : errorFromUrl === 'auth_unavailable'
+        ? 'Autenticazione momentaneamente non disponibile.'
+        : errorFromUrl === 'supabase_env_missing'
+          ? 'Configurazione autenticazione mancante.'
+          : null
+  )
 
   async function handleGoogleLogin() {
     setLoading(true)
@@ -135,7 +145,7 @@ function LoginPageContent() {
           </div>
 
           {/* Error message */}
-          {error && (
+          {errorMessage && (
             <div
               style={{
                 padding: '0.75rem 1rem',
@@ -147,7 +157,7 @@ function LoginPageContent() {
                 textAlign: 'center',
               }}
             >
-              {error}
+              {errorMessage}
             </div>
           )}
 

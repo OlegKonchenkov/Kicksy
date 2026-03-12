@@ -38,6 +38,8 @@ export default function JoinGroupPage() {
       if (joinErr || !joinedGroupId) {
         if (joinErr?.message.includes('invite_code_not_found')) {
           setError('Codice invito non trovato o disabilitato')
+        } else if (joinErr?.message.includes('group_members_user_id_fkey')) {
+          setError('Profilo utente non pronto. Riprova tra qualche secondo.')
         } else {
           setError(joinErr?.message ?? 'Impossibile unirsi al gruppo')
         }
