@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createMatch } from '@/lib/actions/matches'
-import { Button, Input } from '@/components/ui'
+import { Button, Input, useToast } from '@/components/ui'
 import { getMapsHref } from '@/lib/maps'
 
 type MatchFormat = '5v5' | '8v8' | '11v11' | 'custom'
@@ -23,6 +23,7 @@ const FORMAT_PRESETS: Record<Exclude<MatchFormat, 'custom'>, {
 export default function NewMatchPage() {
   const router = useRouter()
   const params = useParams()
+  const { showToast } = useToast()
   const groupId = params.groupId as string
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -85,7 +86,8 @@ export default function NewMatchPage() {
         status: 'open',
       })
 
-      if (result.error) { setError(result.error); return }
+      if (result.error) { setError(result.error); showToast(result.error, 'error'); return }
+      showToast('Partita creata!', 'success')
       router.replace(`/matches/${result.data!.id}`)
     })
   }

@@ -3,11 +3,12 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createGroup } from '@/lib/actions/groups'
-import { Button } from '@/components/ui'
+import { Button, useToast } from '@/components/ui'
 import { Input } from '@/components/ui'
 
 export default function NewGroupPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -24,7 +25,8 @@ export default function NewGroupPage() {
 
     startTransition(async () => {
       const result = await createGroup({ name: name.trim(), description: description.trim() || null })
-      if (result.error) { setError(result.error); return }
+      if (result.error) { setError(result.error); showToast(result.error, 'error'); return }
+      showToast('Gruppo creato!', 'success')
       router.replace(`/groups/${result.data!.id}`)
     })
   }

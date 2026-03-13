@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { IconEdit, IconSoccerBall, IconShield, IconBell, IconLogout } from '@/components/ui/Icons'
+import { useToast } from '@/components/ui'
 
 export default function ProfileSettingsPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -16,6 +18,7 @@ export default function ProfileSettingsPage() {
     startTransition(async () => {
       const supabase = createClient()
       await supabase.auth.signOut()
+      showToast('Disconnesso', 'info')
       router.push('/login')
     })
   }

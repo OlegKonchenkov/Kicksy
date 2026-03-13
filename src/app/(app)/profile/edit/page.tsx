@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
+import { useToast } from '@/components/ui'
 import { IconShieldRole, IconBrain, IconBolt, IconWand, IconTarget } from '@/components/ui/Icons'
 import type { ReactNode } from 'react'
 
@@ -21,6 +22,7 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: RoleValue; label: string; icon: (colo
 
 export default function ProfileEditPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -94,10 +96,12 @@ export default function ProfileEditPage() {
         .eq('id', user.id)
 
       if (err) {
-        if (err.code === '23505') setError('Questo username è già in uso')
-        else setError(err.message)
+        const msg = err.code === '23505' ? 'Questo username è già in uso' : err.message
+        setError(msg)
+        showToast(msg, 'error')
       } else {
         setSuccess(true)
+        showToast('Profilo aggiornato!', 'success')
         setTimeout(() => router.push('/profile'), 1200)
       }
     })

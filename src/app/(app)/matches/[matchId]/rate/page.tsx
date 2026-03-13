@@ -9,6 +9,7 @@ import type { RatingPlayer } from '@/components/ui'
 import { submitRatings } from '@/lib/actions/matches'
 import type { SkillKey } from '@/lib/rating-utils'
 import { IconStar, IconThumbsUp, IconSoccerBall, IconCheck } from '@/components/ui/Icons'
+import { useToast } from '@/components/ui'
 
 export default function RatePage() {
   const params = useParams()
@@ -22,6 +23,7 @@ export default function RatePage() {
   const [done, setDone] = useState(false)
   const [skipped, setSkipped] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const { showToast } = useToast()
 
   useEffect(() => {
     const supabase = createClient()
@@ -71,7 +73,8 @@ export default function RatePage() {
         skills,
         comment: comment || undefined,
       }])
-      if (res.error) return
+      if (res.error) { showToast('Errore nel salvataggio', 'error'); return }
+      showToast('Valutazione salvata', 'success')
       if (currentIdx < matchmates.length - 1) {
         setCurrentIdx(i => i + 1)
       } else {

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Avatar } from '@/components/ui'
+import { Avatar, useToast } from '@/components/ui'
 import { IconRefresh } from '@/components/ui/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { uploadGroupImage, validateAvatarFile } from '@/lib/avatar-upload'
@@ -51,6 +51,7 @@ export default function GroupSettingsPage() {
   const groupId = params.groupId as string
   const router = useRouter()
 
+  const { showToast } = useToast()
   const [group, setGroup] = useState<GroupData | null>(null)
   const [loading, setLoading] = useState(true)
   const [pageError, setPageError] = useState<string | null>(null)
@@ -99,9 +100,8 @@ export default function GroupSettingsPage() {
   }, [groupId, router])
 
   const showSuccess = (msg: string) => {
-    setSuccessMsg(msg)
+    showToast(msg, 'success')
     setActionError(null)
-    setTimeout(() => setSuccessMsg(null), 3000)
   }
 
   const makeInviteLink = (code: string) => {
