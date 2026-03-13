@@ -6,6 +6,7 @@ import type { PlayerBadge, Badge } from '@/types'
 import { getPlayerOverall } from '@/lib/team-balancer'
 import type { SkillSet } from '@/lib/team-balancer'
 import Link from 'next/link'
+import { IconSoccerBall, IconTrophy, IconTarget, IconStar, IconComment, IconMedal, IconChevronRight, IconEdit, IconSettings, IconShieldRole, IconBrain, IconBolt, IconWand } from '@/components/ui/Icons'
 
 type GroupMembership = {
   group_id: string
@@ -13,11 +14,11 @@ type GroupMembership = {
 }
 
 const ROLE_LABELS: Record<string, { label: string; emoji: string }> = {
-  D: { label: 'Difensore', emoji: '🛡️' },
-  C: { label: 'Centrocampista', emoji: '🧠' },
-  E: { label: 'Esterno', emoji: '⚡' },
-  W: { label: 'Trequartista', emoji: '🪄' },
-  A: { label: 'Attaccante', emoji: '🎯' },
+  D: { label: 'Difensore', emoji: '' },
+  C: { label: 'Centrocampista', emoji: '' },
+  E: { label: 'Esterno', emoji: '' },
+  W: { label: 'Trequartista', emoji: '' },
+  A: { label: 'Attaccante', emoji: '' },
 }
 
 export default async function ProfilePage() {
@@ -206,13 +207,13 @@ export default async function ProfilePage() {
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.625rem' }}>
           {[
-            { label: 'Partite', value: totals.played, emoji: '⚽' },
-            { label: 'Vinte', value: totals.won, emoji: '🏆' },
-            { label: 'Gol', value: totals.goals, emoji: '🎯' },
-            { label: 'MVP', value: totals.mvp, emoji: '⭐' },
+            { label: 'Partite', value: totals.played, icon: <IconSoccerBall size={18} color="var(--color-text-2)" /> },
+            { label: 'Vinte', value: totals.won, icon: <IconTrophy size={18} color="var(--color-secondary)" /> },
+            { label: 'Gol', value: totals.goals, icon: <IconTarget size={18} color="var(--color-primary)" /> },
+            { label: 'MVP', value: totals.mvp, icon: <IconStar size={18} color="#FFD700" /> },
           ].map((stat) => (
             <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.875rem 0.5rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', gap: '0.25rem' }}>
-              <span style={{ fontSize: '1.125rem' }}>{stat.emoji}</span>
+              {stat.icon}
               <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-1)', lineHeight: 1 }}>{stat.value}</span>
               <span style={{ fontSize: '0.6rem', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-3)', fontWeight: 700 }}>{stat.label}</span>
             </div>
@@ -304,8 +305,8 @@ export default async function ProfilePage() {
 
       {profileComments.length > 0 && (
         <div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
-            💬 Dicono di me ({profileComments.length})
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <IconComment size={14} color="var(--color-text-3)" /> Dicono di me ({profileComments.length})
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {profileComments.slice(0, 3).map((c, i) => (
@@ -347,15 +348,15 @@ export default async function ProfilePage() {
 
       {(badges.length > 0 || allBadges.length > 0) && (
         <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', padding: '1.25rem' }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', marginBottom: '1rem' }}>🏅 Badge</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-2)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><IconMedal size={16} color="var(--color-text-2)" /> Badge</h3>
           <BadgeShowcase earnedBadges={badges} allBadges={allBadges} />
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <Link href="/profile/settings" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', textDecoration: 'none' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-1)' }}>Impostazioni</span>
-          <span style={{ color: 'var(--color-text-3)' }}>›</span>
+        <Link href="/profile/settings" className="card-interactive" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', textDecoration: 'none' }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-1)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><IconSettings size={16} color="var(--color-text-3)" /> Impostazioni</span>
+          <IconChevronRight size={16} color="var(--color-text-3)" />
         </Link>
       </div>
     </div>

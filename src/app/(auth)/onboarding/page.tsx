@@ -8,16 +8,25 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
 import { createGroup } from '@/lib/actions/groups'
+import { IconShieldRole, IconBrain, IconBolt, IconWand, IconTarget, IconPlus, IconLink } from '@/components/ui/Icons'
 
 type Step = 'profile' | 'group'
 type PlayerRole = 'D' | 'C' | 'E' | 'W' | 'A'
 
-const ROLES: { value: PlayerRole; label: string; emoji: string; desc: string }[] = [
-  { value: 'D', label: 'Difensore',  emoji: '🛡️', desc: 'Arcigno e affidabile' },
-  { value: 'C', label: 'Centrocampista', emoji: '🧠', desc: 'Il motore del gioco' },
-  { value: 'E', label: 'Esterno',    emoji: '⚡', desc: 'Veloce sulla fascia' },
-  { value: 'W', label: 'Trequartista', emoji: '🪄', desc: 'Fantasia e qualità' },
-  { value: 'A', label: 'Attaccante', emoji: '🎯', desc: 'Gol e gloria' },
+const ROLE_ICONS: Record<PlayerRole, React.ReactNode> = {
+  D: <IconShieldRole size={22} color="var(--color-atletismo)" />,
+  C: <IconBrain size={22} color="var(--color-tattica)" />,
+  E: <IconBolt size={22} color="var(--color-tecnica)" />,
+  W: <IconWand size={22} color="var(--color-mentalita)" />,
+  A: <IconTarget size={22} color="var(--color-attacco)" />,
+}
+
+const ROLES: { value: PlayerRole; label: string; desc: string }[] = [
+  { value: 'D', label: 'Difensore', desc: 'Arcigno e affidabile' },
+  { value: 'C', label: 'Centrocampista', desc: 'Il motore del gioco' },
+  { value: 'E', label: 'Esterno', desc: 'Veloce sulla fascia' },
+  { value: 'W', label: 'Trequartista', desc: 'Fantasia e qualità' },
+  { value: 'A', label: 'Attaccante', desc: 'Gol e gloria' },
 ]
 
 export default function OnboardingPage() {
@@ -323,7 +332,7 @@ export default function OnboardingPage() {
                 Ruolo preferito
               </span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
-                {ROLES.map(({ value, label, emoji }) => {
+                {ROLES.map(({ value, label }) => {
                   const selected = role === value
                   return (
                     <button
@@ -345,7 +354,7 @@ export default function OnboardingPage() {
                         minHeight: 44,
                       }}
                     >
-                      <span style={{ fontSize: '1.25rem' }}>{emoji}</span>
+                      {ROLE_ICONS[value]}
                       <span
                         style={{
                           fontSize: '0.6rem',
@@ -418,8 +427,8 @@ export default function OnboardingPage() {
                       justifyContent: 'center',
                     }}
                   >
-                    <span style={{ fontSize: '1.75rem' }}>
-                      {mode === 'create' ? '🏗️' : '🔗'}
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {mode === 'create' ? <IconPlus size={28} color={selected ? 'var(--color-primary)' : 'var(--color-text-2)'} /> : <IconLink size={28} color={selected ? 'var(--color-primary)' : 'var(--color-text-2)'} />}
                     </span>
                     <span
                       style={{
@@ -454,7 +463,7 @@ export default function OnboardingPage() {
                   <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{groupError}</p>
                 )}
                 <Button type="submit" fullWidth loading={isPending} size="lg">
-                  Crea e inizia ⚡
+                  Crea e inizia
                 </Button>
               </form>
             )}

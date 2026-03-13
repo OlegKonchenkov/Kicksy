@@ -2,6 +2,8 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui'
+import { IconMedalGold, IconMedalSilver, IconMedalBronze } from '@/components/ui/Icons'
+import type { ReactNode } from 'react'
 import { getPlayerOverall } from '@/lib/team-balancer'
 import type { SkillSet } from '@/lib/team-balancer'
 import type { PlayerRole } from '@/types'
@@ -222,7 +224,7 @@ export default async function RankingsPage({ searchParams }: PageProps) {
   })
 
   const activeRankings = viewMode === 'ratings' ? ratingsRankings : pointsRankings
-  const medals = ['🥇', '🥈', '🥉']
+  const medals: ReactNode[] = [<IconMedalGold key="g" size={22} />, <IconMedalSilver key="s" size={22} />, <IconMedalBronze key="b" size={22} />]
   const myRank = activeRankings.findIndex((r) => r.user_id === user.id)
 
   return (

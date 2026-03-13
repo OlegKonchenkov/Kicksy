@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { submitGroupRatings } from '@/lib/actions/matches'
 import { CATEGORY_SKILLS } from '@/lib/rating-utils'
 import type { SkillKey } from '@/lib/rating-utils'
+import { IconSearch } from '@/components/ui/Icons'
 
 type Member = RatingPlayer & {
   ratedAt: string | null   // ISO string if rated, null if not
@@ -225,7 +226,7 @@ export default function GroupRatingsPage() {
       {/* Search */}
       {!selfOnly && (
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.875rem', color: 'var(--color-text-3)' }}>🔍</span>
+          <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}><IconSearch size={16} color="var(--color-text-3)" /></span>
           <input
             type="text"
             placeholder="Cerca giocatore…"

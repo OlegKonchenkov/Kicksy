@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { Badge, BadgeTier, PlayerBadge } from '@/types'
+import { IconCheck, IconLock } from '@/components/ui/Icons'
 
 export type BadgeShowcaseProps = {
   earnedBadges: Array<PlayerBadge & { badge: Badge }>
@@ -143,8 +144,7 @@ function LockedBadgeItem({ badge, onOpen }: { badge: Badge; onOpen: (payload: Se
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.55rem',
-        }}>🔒</div>
+        }}><IconLock size={9} color="var(--color-text-3)" /></div>
       </div>
       <span style={{
         fontSize: '0.58rem',
@@ -220,7 +220,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {earnedBadges.length > 0 && (
         <div>
-          <div style={sectionLabel}>✅ Sbloccati ({earnedBadges.length})</div>
+          <div style={{ ...sectionLabel, display: 'flex', alignItems: 'center', gap: '0.375rem' }}><IconCheck size={12} color="var(--color-text-3)" /> Sbloccati ({earnedBadges.length})</div>
           <div style={grid}>
             {earnedBadges.map(pb => <EarnedBadgeItem key={pb.id} pb={pb} onOpen={setSelected} />)}
           </div>
@@ -229,7 +229,7 @@ export function BadgeShowcase({ earnedBadges, allBadges }: BadgeShowcaseProps) {
 
       {lockedBadges.length > 0 && (
         <div>
-          <div style={sectionLabel}>🔒 Da sbloccare ({lockedBadges.length})</div>
+          <div style={{ ...sectionLabel, display: 'flex', alignItems: 'center', gap: '0.375rem' }}><IconLock size={12} color="var(--color-text-3)" /> Da sbloccare ({lockedBadges.length})</div>
           <div style={grid}>
             {lockedBadges.map(b => <LockedBadgeItem key={b.id} badge={b} onOpen={setSelected} />)}
           </div>

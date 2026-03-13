@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Input, LoadingScreen, LoadingSpinner } from '@/components/ui'
+import { IconSoccerBall } from '@/components/ui/Icons'
 
 export default function JoinGroupPage() {
   return (
@@ -175,7 +176,7 @@ function JoinGroupContent() {
               boxShadow: '0 0 40px rgba(200,255,107,0.4), 0 0 80px rgba(200,255,107,0.15)',
             }}
           >
-            <span style={{ fontSize: 36 }}>⚽</span>
+            <IconSoccerBall size={36} color="var(--color-bg)" />
           </div>
           <div className="text-center">
             <h1

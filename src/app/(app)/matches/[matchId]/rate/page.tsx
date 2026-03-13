@@ -8,6 +8,7 @@ import { Avatar, PlayerRatingForm } from '@/components/ui'
 import type { RatingPlayer } from '@/components/ui'
 import { submitRatings } from '@/lib/actions/matches'
 import type { SkillKey } from '@/lib/rating-utils'
+import { IconStar, IconThumbsUp, IconSoccerBall, IconCheck } from '@/components/ui/Icons'
 
 export default function RatePage() {
   const params = useParams()
@@ -83,7 +84,9 @@ export default function RatePage() {
 
   if (done || skipped) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', gap: '1.25rem', textAlign: 'center', padding: '2rem' }}>
-      <span style={{ fontSize: '3rem' }}>{done ? '⭐' : '👍'}</span>
+      <div style={{ width: 64, height: 64, borderRadius: '50%', background: done ? 'rgba(255,215,0,0.12)' : 'rgba(200,255,107,0.12)', border: `1px solid ${done ? 'rgba(255,215,0,0.3)' : 'rgba(200,255,107,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {done ? <IconStar size={32} color="#FFD700" /> : <IconThumbsUp size={32} color="var(--color-primary)" />}
+      </div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)' }}>
         {done ? 'Valutazioni inviate!' : 'Valutazioni saltate'}
       </h2>
@@ -98,7 +101,9 @@ export default function RatePage() {
 
   if (matchmates.length === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '1rem', textAlign: 'center', padding: '2rem' }}>
-      <span style={{ fontSize: '2.5rem' }}>👥</span>
+      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <IconSoccerBall size={28} color="var(--color-text-3)" />
+      </div>
       <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem' }}>Nessun compagno da valutare</p>
       <Link href={`/matches/${matchId}`} style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>← Torna alla partita</Link>
     </div>
@@ -128,7 +133,7 @@ export default function RatePage() {
             <div style={{ width: 44, height: 44, borderRadius: '50%', border: `2px solid ${i === currentIdx ? 'var(--color-primary)' : i < currentIdx ? '#22c55e' : 'var(--color-border)'}`, overflow: 'hidden', transition: 'border-color 0.2s', position: 'relative' }}>
               <Avatar src={m.avatar_url} name={m.full_name ?? m.username} size="md" />
               {i < currentIdx && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(34,197,94,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>✓</div>
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(34,197,94,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconCheck size={16} color="#fff" /></div>
               )}
             </div>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: i === currentIdx ? 'var(--color-primary)' : i < currentIdx ? '#22c55e' : 'var(--color-border)' }} />

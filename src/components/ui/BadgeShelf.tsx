@@ -1,6 +1,7 @@
 'use client'
 
 import type { Badge, PlayerBadge } from '@/types'
+import { IconMedal } from './Icons'
 
 interface BadgeShelfProps {
   badges: Array<PlayerBadge & { badge: Badge }>
@@ -109,7 +110,7 @@ export function BadgeShelf({ badges, showAll = false, maxVisible = 6 }: BadgeShe
           gap: '0.5rem',
         }}
       >
-        <span style={{ fontSize: '2rem' }}>🏅</span>
+        <IconMedal size={32} color="var(--color-text-3)" />
         <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-3)' }}>
           Nessun badge ancora. Gioca e guadagnali!
         </span>

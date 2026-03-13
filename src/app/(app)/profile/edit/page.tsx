@@ -6,16 +6,18 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
+import { IconShieldRole, IconBrain, IconBolt, IconWand, IconTarget } from '@/components/ui/Icons'
+import type { ReactNode } from 'react'
 
-const ROLE_OPTIONS = [
-  { value: 'D', label: 'Difensore', emoji: '🛡️' },
-  { value: 'C', label: 'Centrocampista', emoji: '🧠' },
-  { value: 'E', label: 'Esterno', emoji: '⚡' },
-  { value: 'W', label: 'Trequartista', emoji: '🪄' },
-  { value: 'A', label: 'Attaccante', emoji: '🎯' },
-] as const
+const ROLE_OPTIONS: ReadonlyArray<{ value: string; label: string; icon: (color: string) => ReactNode }> = [
+  { value: 'D', label: 'Difensore', icon: (c) => <IconShieldRole size={14} color={c} /> },
+  { value: 'C', label: 'Centrocampista', icon: (c) => <IconBrain size={14} color={c} /> },
+  { value: 'E', label: 'Esterno', icon: (c) => <IconBolt size={14} color={c} /> },
+  { value: 'W', label: 'Trequartista', icon: (c) => <IconWand size={14} color={c} /> },
+  { value: 'A', label: 'Attaccante', icon: (c) => <IconTarget size={14} color={c} /> },
+]
 
-type RoleValue = typeof ROLE_OPTIONS[number]['value']
+type RoleValue = 'D' | 'C' | 'E' | 'W' | 'A'
 
 export default function ProfileEditPage() {
   const router = useRouter()
@@ -296,7 +298,7 @@ export default function ProfileEditPage() {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <span>{opt.emoji}</span>
+                  <span style={{ display: 'flex', alignItems: 'center' }}>{opt.icon(isPrimary ? 'var(--color-primary)' : isSecondary ? '#f59e0b' : 'var(--color-text-2)')}</span>
                   <span>{opt.label}{isSecondary ? ' (2°)' : ''}</span>
                 </button>
               )

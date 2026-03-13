@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { LEVELS, getLevelInfo } from '@/lib/xp'
+import { IconBolt } from '@/components/ui/Icons'
 
 interface XPBarProps {
   xp: number
@@ -33,9 +34,10 @@ export function XPBar({ xp, className, showLabel = true, compact = false }: XPBa
               style={{
                 color: 'var(--color-primary)',
                 borderColor: 'rgba(200,255,107,0.4)',
-                background: 'rgba(200,255,107,0.1)',
+                background: 'rgba(200,255,107,0.08)',
               }}
             >
+              <IconBolt size={10} color="var(--color-primary)" />
               Lv.{current.level} {current.name}
             </span>
           </div>

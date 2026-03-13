@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { MatchCard } from '@/components/ui'
+import { IconSoccerBall } from '@/components/ui/Icons'
 import type { Match, MatchRegistration, MatchStatus, RegistrationStatus } from '@/types'
 
 export default async function MatchesPage() {
@@ -25,7 +26,9 @@ export default async function MatchesPage() {
           Partite
         </h1>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '3rem 1rem', textAlign: 'center' }}>
-          <span style={{ fontSize: '3rem' }}>⚽</span>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconSoccerBall size={28} color="var(--color-text-3)" />
+          </div>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-3)', maxWidth: 240 }}>
             Entra in un gruppo per vedere le partite
           </p>

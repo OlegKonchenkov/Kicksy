@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { MatchCard, XPBar } from '@/components/ui'
+import { IconGroup, IconMatch, IconSoccerBall, IconChevronRight } from '@/components/ui/Icons'
 import type { MatchStatus, RegistrationStatus } from '@/types'
 
 export default async function HomePage() {
@@ -98,10 +99,11 @@ export default async function HomePage() {
       {/* Greeting */}
       <div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-1)', lineHeight: 1.1 }}>
-          Ciao, {displayName} 👋
+          Ciao, {displayName}
         </h1>
-        <p style={{ color: 'var(--color-text-3)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+        <p style={{ color: 'var(--color-text-3)', fontSize: '0.8125rem', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
           Pronto per il prossimo match?
+          <IconSoccerBall size={14} color="var(--color-text-3)" />
         </p>
       </div>
 
@@ -111,16 +113,20 @@ export default async function HomePage() {
       </div>
 
       {/* Quick actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-        <Link href="/groups" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '1.25rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', textDecoration: 'none', minHeight: 88 }}>
-          <span style={{ fontSize: '1.75rem' }}>👥</span>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>Gruppi</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-3)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{groupCount} attivi</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+        <Link href="/groups" className="card-interactive" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '1.125rem 0.75rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', textDecoration: 'none', minHeight: 84 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconGroup size={22} color="var(--color-info)" />
+          </div>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>Gruppi</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--color-text-2)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{groupCount} attivi</span>
         </Link>
-        <Link href="/matches" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '1.25rem 1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', textDecoration: 'none', minHeight: 88 }}>
-          <span style={{ fontSize: '1.75rem' }}>📅</span>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>Partite</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <Link href="/matches" className="card-interactive" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '1.125rem 0.75rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', textDecoration: 'none', minHeight: 84 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconMatch size={22} color="var(--color-primary)" />
+          </div>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-1)' }}>Partite</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
             {(upcomingMatches ?? []).length > 0 ? `${(upcomingMatches ?? []).length} in arrivo` : 'Nessuna'}
           </span>
         </Link>
@@ -133,8 +139,9 @@ export default async function HomePage() {
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)' }}>
               In Arrivo
             </h2>
-            <Link href="/matches" style={{ fontSize: '0.8rem', color: 'var(--color-primary)', textDecoration: 'none', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
-              Vedi tutte →
+            <Link href="/matches" style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+              Vedi tutte
+              <IconChevronRight size={14} color="var(--color-primary)" />
             </Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -162,7 +169,9 @@ export default async function HomePage() {
       {/* No upcoming matches empty state */}
       {(upcomingMatches ?? []).length === 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2.5rem 1rem', textAlign: 'center', gap: '0.875rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--color-border)' }}>
-          <span style={{ fontSize: '2.5rem' }}>⚽</span>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconSoccerBall size={28} color="var(--color-text-3)" />
+          </div>
           <div>
             <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-1)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
               Nessuna partita in arrivo

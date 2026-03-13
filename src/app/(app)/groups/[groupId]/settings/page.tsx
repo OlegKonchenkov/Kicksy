@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui'
+import { IconRefresh } from '@/components/ui/Icons'
 import { createClient } from '@/lib/supabase/client'
 import { uploadGroupImage, validateAvatarFile } from '@/lib/avatar-upload'
 import {
@@ -465,7 +466,7 @@ export default function GroupSettingsPage() {
             disabled={isPending}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1rem', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-2)', cursor: isPending ? 'default' : 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: isPending ? 0.6 : 1 }}
           >
-            🔄 Rigenera codice
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}><IconRefresh size={13} color="var(--color-text-2)" /> Rigenera codice</span>
           </button>
         </div>
       </section>

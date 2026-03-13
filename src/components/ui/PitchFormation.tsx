@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Avatar } from './Avatar'
+import { IconBolt } from './Icons'
 
 interface PitchPlayer {
   id: string
@@ -223,7 +224,7 @@ export function PitchFormation({
           margin: 0,
         }}>
           {selectedId
-            ? "⚡ Tocca un giocatore dell'altra squadra per scambiarlo"
+            ? <><IconBolt size={11} color="var(--color-primary)" /> Tocca un giocatore dell&apos;altra squadra per scambiarlo</>
             : 'Tocca un giocatore per selezionarlo'}
         </p>
       )}

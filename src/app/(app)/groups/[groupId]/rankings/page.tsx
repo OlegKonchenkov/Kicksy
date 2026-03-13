@@ -2,6 +2,8 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui'
+import { IconMedalGold, IconMedalSilver, IconMedalBronze } from '@/components/ui/Icons'
+import type { ReactNode } from 'react'
 import { getPlayerOverall } from '@/lib/team-balancer'
 import type { SkillSet } from '@/lib/team-balancer'
 import type { PlayerRole } from '@/types'
@@ -196,7 +198,7 @@ export default async function GroupRankingsPage({ params, searchParams }: PagePr
   })
 
   const activeRankings = viewMode === 'ratings' ? ratingsRankings : pointsRankings
-  const medals = ['🥇', '🥈', '🥉']
+  const medals: ReactNode[] = [<IconMedalGold key="g" size={22} />, <IconMedalSilver key="s" size={22} />, <IconMedalBronze key="b" size={22} />]
 
   return (
     <div style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -255,7 +257,7 @@ export default async function GroupRankingsPage({ params, searchParams }: PagePr
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '0.5rem', padding: '1.5rem 1rem 1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
             <Avatar src={activeRankings[1].avatar_url} name={activeRankings[1].full_name ?? activeRankings[1].username} size="md" />
-            <div style={{ fontSize: '1.25rem' }}>🥈</div>
+            <div><IconMedalSilver size={28} /></div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-2)', textAlign: 'center', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {activeRankings[1].full_name?.split(' ')[0] ?? activeRankings[1].username}
             </div>
@@ -270,7 +272,7 @@ export default async function GroupRankingsPage({ params, searchParams }: PagePr
             <div style={{ filter: 'drop-shadow(0 0 16px rgba(200,255,107,0.5))' }}>
               <Avatar src={activeRankings[0].avatar_url} name={activeRankings[0].full_name ?? activeRankings[0].username} size="lg" />
             </div>
-            <div style={{ fontSize: '1.5rem' }}>🥇</div>
+            <div><IconMedalGold size={32} /></div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-primary)', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {activeRankings[0].full_name?.split(' ')[0] ?? activeRankings[0].username}
             </div>
@@ -283,7 +285,7 @@ export default async function GroupRankingsPage({ params, searchParams }: PagePr
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
             <Avatar src={activeRankings[2].avatar_url} name={activeRankings[2].full_name ?? activeRankings[2].username} size="md" />
-            <div style={{ fontSize: '1.25rem' }}>🥉</div>
+            <div><IconMedalBronze size={28} /></div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-2)', textAlign: 'center', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {activeRankings[2].full_name?.split(' ')[0] ?? activeRankings[2].username}
             </div>

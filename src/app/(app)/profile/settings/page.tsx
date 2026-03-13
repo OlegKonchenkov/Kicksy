@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { IconEdit, IconSoccerBall, IconShield, IconBell, IconLogout } from '@/components/ui/Icons'
 
 export default function ProfileSettingsPage() {
   const router = useRouter()
@@ -66,7 +67,7 @@ export default function ProfileSettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <Link href="/profile/edit" style={{ ...rowStyle, cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>✏️</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><IconEdit size={20} color="var(--color-text-2)" /></span>
               <div>
                 <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-1)', fontWeight: 600 }}>Modifica profilo</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>Nome, username, ruolo preferito</div>
@@ -83,7 +84,7 @@ export default function ProfileSettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ ...rowStyle, cursor: 'default' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>🏟️</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><IconSoccerBall size={20} color="var(--color-text-2)" /></span>
               <div>
                 <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-1)', fontWeight: 600 }}>Kicksy</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>Versione 1.0.0</div>
@@ -98,7 +99,7 @@ export default function ProfileSettingsPage() {
         <p style={sectionTitle}>Notifiche</p>
         <div style={{ padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-            <span style={{ fontSize: '1.25rem' }}>🔔</span>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><IconBell size={20} color="var(--color-text-2)" /></span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-1)', fontWeight: 600 }}>Notifiche push</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>Presto disponibile</div>
@@ -119,7 +120,7 @@ export default function ProfileSettingsPage() {
           style={{ ...rowStyle, width: '100%', cursor: isPending ? 'default' : 'pointer', border: '1px solid var(--color-border)', opacity: isPending ? 0.6 : 1 }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-            <span style={{ fontSize: '1.25rem' }}>🚪</span>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><IconLogout size={20} color="var(--color-danger)" /></span>
             <div style={{ fontSize: '0.9375rem', color: 'var(--color-danger)', fontWeight: 600 }}>Disconnetti</div>
           </div>
         </button>
@@ -134,7 +135,7 @@ export default function ProfileSettingsPage() {
             style={{ ...rowStyle, width: '100%', cursor: 'pointer', borderColor: 'var(--color-danger)' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }}><IconShield size={20} color="var(--color-danger)" /></span>
               <div>
                 <div style={{ fontSize: '0.9375rem', color: 'var(--color-danger)', fontWeight: 600 }}>Elimina account</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-3)', marginTop: '0.125rem' }}>Azione irreversibile</div>

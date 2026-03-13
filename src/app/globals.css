@@ -527,3 +527,182 @@
   60%  { transform: scale(1.4); opacity: 0.6; }
   100% { transform: scale(2); opacity: 0; }
 }
+
+/* --- Soccer ball loading animation --- */
+@keyframes ball-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%      { transform: translateY(-14px) rotate(90deg); }
+  50%      { transform: translateY(0) rotate(180deg); }
+  75%      { transform: translateY(-8px) rotate(270deg); }
+}
+
+@keyframes ball-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.3; }
+  25%      { transform: scaleX(0.6); opacity: 0.15; }
+  50%      { transform: scaleX(1); opacity: 0.3; }
+  75%      { transform: scaleX(0.8); opacity: 0.2; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 1; transform: translateX(-50%) scale(1.05); }
+}
+
+@keyframes loading-dots {
+  0%       { content: ''; }
+  25%      { content: '.'; }
+  50%      { content: '..'; }
+  75%      { content: '...'; }
+}
+
+@keyframes nav-indicator-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes stagger-in {
+  from { transform: translateY(16px); opacity: 0; filter: blur(4px); }
+  to   { transform: translateY(0); opacity: 1; filter: blur(0px); }
+}
+
+@keyframes card-hover-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(200,255,107,0); }
+  50%      { box-shadow: 0 0 20px rgba(200,255,107,0.1); }
+}
+
+@keyframes progress-fill {
+  from { width: 0%; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes ripple {
+  to { transform: scale(2.5); opacity: 0; }
+}
+
+/* ============================================================
+   LOADING BALL COMPONENT
+   ============================================================ */
+
+.loading-ball-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading-ball-spin {
+  animation: ball-bounce 1.2s cubic-bezier(0.36, 0, 0.66, 1) infinite;
+}
+
+.loading-ball-shadow {
+  width: 32px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(200, 255, 107, 0.2);
+  filter: blur(2px);
+  animation: ball-shadow 1.2s cubic-bezier(0.36, 0, 0.66, 1) infinite;
+}
+
+.loading-dots::after {
+  content: '';
+  animation: loading-dots 1.5s steps(4, end) infinite;
+}
+
+/* ============================================================
+   ENHANCED COMPONENT STYLES
+   ============================================================ */
+
+/* Card with hover lift */
+.card-interactive {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgba(200, 255, 107, 0.2) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(200, 255, 107, 0.1);
+}
+
+.card-interactive:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+/* Stagger children animation */
+.stagger-children > * {
+  animation: stagger-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+/* Nav indicator animation */
+.nav-indicator {
+  animation: nav-indicator-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* XP bar shimmer overlay */
+.xp-bar-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.xp-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Score display animation */
+.score-animate {
+  animation: score-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Badge pulse on hover */
+.badge-interactive {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.badge-interactive:hover {
+  transform: scale(1.1);
+}
+
+/* Skeleton enhanced */
+.skeleton-text {
+  height: 0.875rem;
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  height: 120px;
+  border-radius: var(--radius-lg);
+}

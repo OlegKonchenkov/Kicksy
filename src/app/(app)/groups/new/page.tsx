@@ -67,7 +67,7 @@ export default function NewGroupPage() {
         {error && <p style={{ fontSize: '0.8125rem', color: 'var(--color-danger)' }}>{error}</p>}
 
         <Button type="submit" fullWidth loading={isPending} size="lg">
-          Crea Gruppo ⚡
+          Crea Gruppo
         </Button>
       </form>
     </div>

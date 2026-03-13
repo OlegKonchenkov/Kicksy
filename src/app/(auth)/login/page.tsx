@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import { LoadingScreen, LoadingSpinner } from '@/components/ui'
+import { IconSoccerBall, IconBolt } from '@/components/ui/Icons'
 
 export default function LoginPage() {
   return (
@@ -70,7 +71,7 @@ function LoginPageContent() {
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-8">
 
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3" style={{ animation: 'scale-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
           <div
             style={{
               width: 72,
@@ -83,7 +84,7 @@ function LoginPageContent() {
               boxShadow: '0 0 40px rgba(200,255,107,0.4), 0 0 80px rgba(200,255,107,0.15)',
             }}
           >
-            <span style={{ fontSize: 36 }}>⚽</span>
+            <IconSoccerBall size={38} color="var(--color-bg)" />
           </div>
           <div className="text-center">
             <h1
@@ -120,6 +121,7 @@ function LoginPageContent() {
             display: 'flex',
             flexDirection: 'column',
             gap: '1.5rem',
+            animation: 'stagger-in 0.5s ease 0.2s both',
           }}
         >
           <div className="text-center">
@@ -226,9 +228,14 @@ function LoginPageContent() {
             fontSize: '0.75rem',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            animation: 'stagger-in 0.5s ease 0.4s both',
           }}
         >
-          Il campo ti aspetta ⚡
+          Il campo ti aspetta
+          <IconBolt size={12} color="var(--color-primary)" />
         </p>
       </div>
     </div>

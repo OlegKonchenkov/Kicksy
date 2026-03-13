@@ -3,6 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import {
+  IconHome, IconHomeFilled,
+  IconMatch, IconMatchFilled,
+  IconGroup, IconGroupFilled,
+  IconRanking, IconRankingFilled,
+  IconProfile, IconProfileFilled,
+} from '@/components/ui/Icons'
 
 interface NavItem {
   href: string
@@ -14,53 +21,27 @@ const NAV_ITEMS: NavItem[] = [
   {
     href: '/',
     label: 'Home',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
+    icon: (active) => active ? <IconHomeFilled size={21} /> : <IconHome size={21} />,
   },
   {
     href: '/matches',
     label: 'Partite',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 8v4l3 3" />
-      </svg>
-    ),
+    icon: (active) => active ? <IconMatchFilled size={21} /> : <IconMatch size={21} />,
   },
   {
     href: '/groups',
     label: 'Gruppo',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 00-3-3.87" />
-        <path d="M16 3.13a4 4 0 010 7.75" />
-      </svg>
-    ),
+    icon: (active) => active ? <IconGroupFilled size={21} /> : <IconGroup size={21} />,
   },
   {
     href: '/rankings',
     label: 'Classifica',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-      </svg>
-    ),
+    icon: (active) => active ? <IconRankingFilled size={21} /> : <IconRanking size={21} />,
   },
   {
     href: '/profile',
     label: 'Profilo',
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
+    icon: (active) => active ? <IconProfileFilled size={21} /> : <IconProfile size={21} />,
   },
 ]
 
@@ -73,7 +54,7 @@ export function BottomNav() {
         style={{
           display: 'flex',
           alignItems: 'stretch',
-          height: 58,
+          height: 60,
           maxWidth: 600,
           margin: '0 auto',
         }}
@@ -87,14 +68,39 @@ export function BottomNav() {
               href={href}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-0.5 touch-target',
-                'transition-colors duration-150',
+                'transition-all duration-200',
                 active
                   ? 'text-[--color-primary]'
                   : 'text-[--color-text-3] hover:text-[--color-text-2]'
               )}
               aria-current={active ? 'page' : undefined}
+              style={{ position: 'relative' }}
             >
-              {icon(active)}
+              {/* Active indicator bar */}
+              {active && (
+                <div
+                  className="nav-indicator"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '20%',
+                    right: '20%',
+                    height: 2.5,
+                    background: 'var(--color-primary)',
+                    borderRadius: '0 0 4px 4px',
+                    boxShadow: '0 2px 8px rgba(200, 255, 107, 0.4)',
+                  }}
+                />
+              )}
+
+              {/* Icon with subtle scale on active */}
+              <div style={{
+                transform: active ? 'scale(1.05)' : 'scale(1)',
+                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              }}>
+                {icon(active)}
+              </div>
+
               <span
                 style={{
                   fontSize: '0.5625rem',
@@ -102,6 +108,8 @@ export function BottomNav() {
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                   fontFamily: 'var(--font-display)',
+                  transition: 'opacity 0.2s ease',
+                  opacity: active ? 1 : 0.7,
                 }}
               >
                 {label}

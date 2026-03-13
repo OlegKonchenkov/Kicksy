@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { generateBalancedTeams, getPlayerOverall } from '@/lib/team-balancer'
 import type { PlayerInput } from '@/lib/team-balancer'
 import { Button, TeamSplit, PitchFormation, useToast } from '@/components/ui'
+import { IconPitch, IconClipboard } from '@/components/ui/Icons'
 
 interface PlayerData {
   id: string
@@ -419,7 +420,7 @@ export default function TeamsPage() {
               color: viewMode === mode ? '#0A0C12' : 'var(--color-text-3)',
             }}
           >
-            {mode === 'pitch' ? '⚽ Campo' : '📋 Lista'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>{mode === 'pitch' ? <><IconPitch size={12} color={viewMode === 'pitch' ? '#0A0C12' : 'var(--color-text-3)'} /> Campo</> : <><IconClipboard size={12} color={viewMode === 'list' ? '#0A0C12' : 'var(--color-text-3)'} /> Lista</>}</span>
           </button>
         ))}
       </div>

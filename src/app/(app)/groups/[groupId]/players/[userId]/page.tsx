@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Avatar, RadarChart, PlayerFIFACard, BadgeShowcase } from '@/components/ui'
+import { IconSoccerBall, IconComment, IconMedal } from '@/components/ui/Icons'
 import type { FIFASkillBar } from '@/components/ui'
 import { getPlayerOverall } from '@/lib/team-balancer'
 import type { SkillSet } from '@/lib/team-balancer'
@@ -308,7 +309,9 @@ export default async function GroupPlayerPage({ params }: PageProps) {
           borderRadius: 'var(--radius-lg)',
           border: '1px dashed var(--color-border)',
         }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⚽</div>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+            <IconSoccerBall size={28} color="var(--color-text-3)" />
+          </div>
           <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-2)', fontWeight: 600, marginBottom: '0.25rem' }}>
             Nessuna statistica ancora
           </p>
@@ -418,7 +421,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
       {comments.length > 0 && (
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-3)', marginBottom: '0.875rem' }}>
-            💬 Dicono di {isMe ? 'te' : 'lui'} ({comments.length})
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}><IconComment size={14} color="var(--color-text-3)" /> Dicono di {isMe ? 'te' : 'lui'} ({comments.length})</span>
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {comments.slice(0, 3).map((c, i) => (
@@ -474,7 +477,7 @@ export default async function GroupPlayerPage({ params }: PageProps) {
             letterSpacing: '0.08em',
             color: 'var(--color-text-2)',
             marginBottom: '1rem',
-          }}>🏅 Badge</h3>
+          }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}><IconMedal size={14} color="var(--color-text-2)" /> Badge</span></h3>
           <BadgeShowcase earnedBadges={earnedBadgesForShowcase} allBadges={allBadges} />
         </div>
       )}

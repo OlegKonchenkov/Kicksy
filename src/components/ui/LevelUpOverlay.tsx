@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { IconTrophy, IconStar, IconBolt } from '@/components/ui/Icons'
 
 interface LevelUpOverlayProps {
   newLevel: number
@@ -42,7 +43,7 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
         cursor: 'pointer',
       }}
     >
-      {/* Stars burst effect */}
+      {/* Burst effect */}
       {phase === 'burst' && (
         <div
           style={{
@@ -51,11 +52,13 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '4rem',
             animation: 'level-up-burst 0.4s ease-out forwards',
           }}
         >
-          ⭐
+          <div style={{
+            width: 80, height: 80, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(200,255,107,0.4), transparent)',
+          }} />
         </div>
       )}
 
@@ -75,16 +78,21 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
           transition: 'opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)',
         }}
       >
-        {/* Trophy emoji */}
+        {/* Trophy */}
         <div
           style={{
-            fontSize: '5rem',
-            lineHeight: 1,
-            filter: 'drop-shadow(0 0 24px rgba(200,255,107,0.6))',
+            width: 88,
+            height: 88,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(200,255,107,0.15) 0%, transparent 70%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             animation: phase === 'show' ? 'float 3s ease-in-out infinite' : 'none',
+            filter: 'drop-shadow(0 0 24px rgba(200,255,107,0.5))',
           }}
         >
-          🏆
+          <IconTrophy size={48} color="var(--color-primary)" />
         </div>
 
         {/* Level up text */}
@@ -134,12 +142,12 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
             alignItems: 'center',
             gap: '0.5rem',
             padding: '0.5rem 1rem',
-            background: 'rgba(200,255,107,0.12)',
+            background: 'rgba(200,255,107,0.10)',
             border: '1px solid rgba(200,255,107,0.3)',
             borderRadius: 999,
           }}
         >
-          <span style={{ fontSize: '1rem' }}>⚡</span>
+          <IconBolt size={14} color="var(--color-primary)" />
           <span
             style={{
               fontFamily: 'var(--font-mono)',
@@ -152,43 +160,50 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
           </span>
         </div>
 
-        {/* Particle dots */}
+        {/* Floating star decorations */}
         <div
           style={{
             display: 'flex',
-            gap: '0.375rem',
+            gap: '0.75rem',
             position: 'absolute',
             top: '20%',
-            left: '10%',
+            left: '8%',
             animation: 'float 2s ease-in-out infinite alternate',
-            opacity: 0.6,
+            opacity: 0.5,
           }}
         >
-          {['⭐', '✨', '💫'].map((s, i) => (
-            <span key={i} style={{ fontSize: '1.25rem', animationDelay: `${i * 0.2}s` }}>{s}</span>
+          {[12, 8, 10].map((s, i) => (
+            <div key={i} style={{ animationDelay: `${i * 0.2}s` }}>
+              <IconStar size={s} color="var(--color-primary)" />
+            </div>
           ))}
         </div>
         <div
           style={{
             display: 'flex',
-            gap: '0.375rem',
+            gap: '0.75rem',
             position: 'absolute',
             bottom: '20%',
-            right: '10%',
+            right: '8%',
             animation: 'float 2.5s ease-in-out infinite alternate-reverse',
-            opacity: 0.6,
+            opacity: 0.4,
           }}
         >
-          {['💫', '✨', '⭐'].map((s, i) => (
-            <span key={i} style={{ fontSize: '1rem', animationDelay: `${i * 0.15}s` }}>{s}</span>
+          {[8, 12, 6].map((s, i) => (
+            <div key={i} style={{ animationDelay: `${i * 0.15}s` }}>
+              <IconStar size={s} color="var(--color-secondary)" />
+            </div>
           ))}
         </div>
 
-        {/* Tap to close */}
+        {/* Continue button */}
         <button
           type="button"
           onClick={handleClose}
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
             background: 'var(--color-primary)',
             color: 'var(--color-bg)',
             border: 'none',
@@ -206,7 +221,8 @@ export function LevelUpOverlay({ newLevel, levelName, xpGained, onClose }: Level
           onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
           onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
         >
-          Continua ⚡
+          Continua
+          <IconBolt size={14} color="var(--color-bg)" />
         </button>
       </div>
     </div>

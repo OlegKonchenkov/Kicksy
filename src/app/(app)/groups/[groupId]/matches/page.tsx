@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { MatchCard } from '@/components/ui'
+import { IconCalendar } from '@/components/ui/Icons'
 import type { MatchStatus, RegistrationStatus } from '@/types'
 
 interface PageProps {
@@ -163,7 +164,9 @@ export default async function GroupMatchesPage({ params }: PageProps) {
       {/* Empty state */}
       {allMatches.length === 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 1rem', textAlign: 'center', gap: '0.875rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--color-border)' }}>
-          <span style={{ fontSize: '2.5rem' }}>📅</span>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconCalendar size={28} color="var(--color-text-3)" />
+          </div>
           <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-1)', fontFamily: 'var(--font-display)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
             Nessuna partita ancora
           </p>

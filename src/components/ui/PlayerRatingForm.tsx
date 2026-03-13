@@ -9,6 +9,8 @@ import {
   isCategoryCustomized,
 } from '@/lib/rating-utils'
 import { Avatar } from '@/components/ui/Avatar'
+import { IconMuscle, IconSoccerBall, IconBrain, IconShield, IconTarget, IconFire, IconBolt, IconComment } from '@/components/ui/Icons'
+import type { ReactNode } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,15 +36,23 @@ export type PlayerRatingFormProps = {
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 
+const CATEGORY_ICONS: Record<CategoryKey, (color: string) => ReactNode> = {
+  fisica: (c) => <IconMuscle size={16} color={c} />,
+  tecnica: (c) => <IconSoccerBall size={16} color={c} />,
+  tattica: (c) => <IconBrain size={16} color={c} />,
+  difesa: (c) => <IconShield size={16} color={c} />,
+  attacco: (c) => <IconTarget size={16} color={c} />,
+  mentalita: (c) => <IconFire size={16} color={c} />,
+}
+
 const CATEGORIES: Array<{
   key: CategoryKey
   label: string
-  emoji: string
   color: string
   skills: Array<{ key: SkillKey; label: string }>
 }> = [
   {
-    key: 'fisica', label: 'Fisica', emoji: '💪', color: '#3B82F6',
+    key: 'fisica', label: 'Fisica', color: '#3B82F6',
     skills: [
       { key: 'velocita', label: 'Velocità' },
       { key: 'resistenza', label: 'Resistenza' },
@@ -52,7 +62,7 @@ const CATEGORIES: Array<{
     ],
   },
   {
-    key: 'tecnica', label: 'Tecnica', emoji: '⚽', color: '#C8FF6B',
+    key: 'tecnica', label: 'Tecnica', color: '#C8FF6B',
     skills: [
       { key: 'tecnica_palla', label: 'Controllo palla' },
       { key: 'dribbling', label: 'Dribbling' },
@@ -62,7 +72,7 @@ const CATEGORIES: Array<{
     ],
   },
   {
-    key: 'tattica', label: 'Tattica', emoji: '🧠', color: '#FFB800',
+    key: 'tattica', label: 'Tattica', color: '#FFB800',
     skills: [
       { key: 'lettura_gioco', label: 'Lettura del gioco' },
       { key: 'posizionamento', label: 'Posizionamento' },
@@ -71,7 +81,7 @@ const CATEGORIES: Array<{
     ],
   },
   {
-    key: 'difesa', label: 'Difesa', emoji: '🛡️', color: '#EF4444',
+    key: 'difesa', label: 'Difesa', color: '#EF4444',
     skills: [
       { key: 'marcatura', label: 'Marcatura' },
       { key: 'tackle', label: 'Tackle' },
@@ -80,14 +90,14 @@ const CATEGORIES: Array<{
     ],
   },
   {
-    key: 'attacco', label: 'Attacco', emoji: '🎯', color: '#F97316',
+    key: 'attacco', label: 'Attacco', color: '#F97316',
     skills: [
       { key: 'finalizzazione', label: 'Finalizzazione' },
       { key: 'assist_making', label: 'Assist' },
     ],
   },
   {
-    key: 'mentalita', label: 'Mentalità', emoji: '🔥', color: '#A855F7',
+    key: 'mentalita', label: 'Mentalità', color: '#A855F7',
     skills: [
       { key: 'leadership', label: 'Leadership' },
       { key: 'comunicazione', label: 'Comunicazione' },
@@ -194,13 +204,13 @@ export function PlayerRatingForm({
             <div style={{ padding: '0.875rem 1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isOpen ? '0' : '0.625rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1rem' }}>{cat.emoji}</span>
+                  {CATEGORY_ICONS[cat.key](cat.color)}
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-2)' }}>
                     {cat.label}
                   </span>
                   {customized && (
-                    <span style={{ fontSize: '0.6rem', padding: '0.1rem 0.375rem', background: cat.color + '20', color: cat.color, borderRadius: 999, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: '0.04em' }}>
-                      ⚡ custom
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', fontSize: '0.6rem', padding: '0.1rem 0.375rem', background: cat.color + '20', color: cat.color, borderRadius: 999, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                      <IconBolt size={8} color={cat.color} /> custom
                     </span>
                   )}
                 </div>
@@ -268,7 +278,7 @@ export function PlayerRatingForm({
       <div style={{ background: 'var(--color-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-            <span style={{ fontSize: '0.875rem' }}>💬</span>
+            <IconComment size={14} color="var(--color-text-2)" />
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-2)' }}>
               Commento
             </span>
