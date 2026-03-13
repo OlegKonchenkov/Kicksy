@@ -91,33 +91,37 @@ const yesterday = new Date()
 yesterday.setDate(yesterday.getDate() - 1)
 yesterday.setHours(20, 0, 0, 0)
 
-const MOCK_MATCHES: Array<{ match: Match; registration: MatchRegistration | null; confirmedCount: number }> = [
+const MOCK_MATCHES: Array<{ match: Match; registration: MatchRegistration | null; confirmedCount: number; score_a?: number | null; score_b?: number | null }> = [
   {
     match: {
       id: '1', group_id: 'g1', title: 'Calcetto del Giovedi', status: 'open',
       scheduled_at: tomorrow.toISOString(), location: 'Centro Sportivo Roma',
-      max_players: 10, created_by: '1', created_at: '',      score_a: null, score_b: null, mvp_user_id: null, is_recurring: false,
+      max_players: 10, min_players: 6, team_size: 5, created_by: '1', created_at: '', updated_at: '',
+      description: null, registration_deadline: null,
     },
-    registration: { id: 'r1', match_id: '1', user_id: '1', status: 'confirmed', created_at: '' },
+    registration: { id: 'r1', match_id: '1', user_id: '1', status: 'confirmed', registered_at: '', team_id: null },
     confirmedCount: 7,
   },
   {
     match: {
       id: '2', group_id: 'g1', title: 'Torneo Flash 5v5', status: 'locked',
       scheduled_at: nextWeek.toISOString(), location: 'Palestra San Marco',
-      max_players: 10, created_by: '2', created_at: '',      score_a: null, score_b: null, mvp_user_id: null, is_recurring: false,
+      max_players: 10, min_players: 6, team_size: 5, created_by: '2', created_at: '', updated_at: '',
+      description: null, registration_deadline: null,
     },
-    registration: { id: 'r2', match_id: '2', user_id: '1', status: 'waitlist', created_at: '' },
+    registration: { id: 'r2', match_id: '2', user_id: '1', status: 'waitlist', registered_at: '', team_id: null },
     confirmedCount: 10,
   },
   {
     match: {
       id: '3', group_id: 'g1', title: 'Partitella Domenicale', status: 'played',
       scheduled_at: yesterday.toISOString(), location: 'Campo Comunale',
-      max_players: 14, created_by: '1', created_at: '',      score_a: 4, score_b: 3, mvp_user_id: '1', is_recurring: false,
+      max_players: 14, min_players: 10, team_size: 7, created_by: '1', created_at: '', updated_at: '',
+      description: null, registration_deadline: null,
     },
-    registration: { id: 'r3', match_id: '3', user_id: '1', status: 'confirmed', created_at: '' },
+    registration: { id: 'r3', match_id: '3', user_id: '1', status: 'confirmed', registered_at: '', team_id: null },
     confirmedCount: 14,
+    score_a: 4, score_b: 3,
   },
 ]
 
