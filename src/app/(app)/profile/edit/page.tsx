@@ -9,15 +9,15 @@ import { uploadAvatarImage, validateAvatarFile } from '@/lib/avatar-upload'
 import { IconShieldRole, IconBrain, IconBolt, IconWand, IconTarget } from '@/components/ui/Icons'
 import type { ReactNode } from 'react'
 
-const ROLE_OPTIONS: ReadonlyArray<{ value: string; label: string; icon: (color: string) => ReactNode }> = [
+type RoleValue = 'D' | 'C' | 'E' | 'W' | 'A'
+
+const ROLE_OPTIONS: ReadonlyArray<{ value: RoleValue; label: string; icon: (color: string) => ReactNode }> = [
   { value: 'D', label: 'Difensore', icon: (c) => <IconShieldRole size={14} color={c} /> },
   { value: 'C', label: 'Centrocampista', icon: (c) => <IconBrain size={14} color={c} /> },
   { value: 'E', label: 'Esterno', icon: (c) => <IconBolt size={14} color={c} /> },
   { value: 'W', label: 'Trequartista', icon: (c) => <IconWand size={14} color={c} /> },
   { value: 'A', label: 'Attaccante', icon: (c) => <IconTarget size={14} color={c} /> },
 ]
-
-type RoleValue = 'D' | 'C' | 'E' | 'W' | 'A'
 
 export default function ProfileEditPage() {
   const router = useRouter()
